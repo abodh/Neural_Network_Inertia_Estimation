@@ -1,3 +1,7 @@
+# author: Abodh Poudyal
+# referenced from : James McCaffrey (Microsoft)
+# Date: February, 2020
+
 import numpy as np
 from sklearn.preprocessing import normalize
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
@@ -36,7 +40,9 @@ class Net(T.nn.Module):
 T.manual_seed(1);  np.random.seed(1)
 
 #1. Loading the data from the text file and normalizing the data using l2 norm
-data_main = np.genfromtxt('datafrequ.csv', delimiter = ",")
+
+data_main = np.genfromtxt('datafrequ.csv', delimiter = ",") # define the file name ('datafrequ.csv') is default here
+
 data = data_main[:,1:3]
 normalized_input_data = normalize(data, axis = 0, norm = 'l2')
 train_x = normalized_input_data [0:600,:]
