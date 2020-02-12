@@ -3,8 +3,7 @@ from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 import matplotlib.pyplot as plt
 import torch as T
-from loading_data import loading, normalize_create
-
+from loading_data import loading, normalize_data
 import pdb
 
 # Set the font dictionaries (for plot title and axis titles)
@@ -12,8 +11,6 @@ title_font = {'fontname': 'Arial', 'size': '16', 'color': 'black', 'weight': 'no
               'verticalalignment': 'bottom'}  # Bottom vertical alignment for more space
 axis_font = {'fontname': 'Arial', 'size': '14'}
 
-# with np.errstate(divide='ignore'):
-#     np.float64(1.0) / 0.0
 
 def accuracy(model, data_x, data_y, pct_close):
   n_items = len(data_y)
@@ -40,10 +37,10 @@ def accuracy_2(model, data_x, data_y, pct_close):
   return result
 
 class Net(T.nn.Module):
-  def __init__(self):
+  def __init__(self, n_inp, n_hid, n_out):
     super(Net, self).__init__()
-    self.hid1 = T.nn.Linear(2, 5)  # 2-(5)-1
-    self.oupt = T.nn.Linear(5, 1)
+    self.hid1 = T.nn.Linear(n_inp, n_hid)  # 2-(5)-1
+    self.oupt = T.nn.Linear(n_hid, n_out)
     T.nn.init.xavier_uniform_(self.hid1.weight)
     T.nn.init.zeros_(self.hid1.bias)
     T.nn.init.xavier_uniform_(self.oupt.weight)
@@ -57,67 +54,21 @@ T.manual_seed(1);  np.random.seed(1)
 
 #1. Loading the data from the text(mat) file and normalizing the data using l2 norm
 
-# data_main = np.genfromtxt('datafrequ.csv', delimiter = ",")
-# data = data_main[:,1:3]
-# normalized_input_data = normalize(data, axis = 0, norm = 'l2')
-# train_x1 = normalized_input_data [0:600,:]
-# train_y1 = data_main[0:600, 3]
-# test_x1 = normalized_input_data [600:800,:]
-# test_y1 = data_main[600:800, 3]
-
-'''
-    Declaring parameters
-    iner_10 = loading (inertia = 10, low = 10, high = 12.5, f_file = 'frequency_10.mat', rocof_file = 'rocofrequency.mat')
-'''
-
-iner_data_5 = loading(inertia = 5,                     # value of inertia to be trained
-                  low = 10,                            # lower limit of data to be captured
-                  high = 12.5,                         # upper limit of the data to be captured
-                  f_file = 'frequency_5.mat',          # frequency data mat file
-                  rocof_file = 'rocofrequency_5.mat')  # rocof data mat file
-
-iner_data_8 = loading(inertia = 8,                     # value of inertia to be trained
-                  low = 10,                            # lower limit of data to be captured
-                  high = 12.5,                         # upper limit of the data to be captured
-                  f_file = 'frequency_8.mat',          # frequency data mat file
-                  rocof_file = 'rocofrequency_8.mat')  # rocof data mat file
-
-iner_data_10 = loading(inertia = 10,                   # value of inertia to be trained
-                  low = 10,                            # lower limit of data to be captured
-                  high = 12.5,                         # upper limit of the data to be captured
-                  f_file = 'frequency_10.mat',         # frequency data mat file
-                  rocof_file = 'rocofrequency_10.mat') # rocof data mat file
-
-'''
-    For Single training set the variables below can be used
-
-    # number of data to train and test
-    train_num = int(0.8*len(iner_data))
-    test_num = int(0.2*len(iner_data))
-    
-    # data normalization and separating training and testing data
-    normalized_iner_data = normalize(iner_data[:,0:2], axis = 0, norm = 'l2')
-    train_x = normalized_iner_data [0:train_num,:]
-    train_y = iner_data[0:train_num, 2]
-    test_x = normalized_iner_data [train_num:len(iner_data),:]
-    test_y = iner_data[train_num:len(iner_data), 2]
-'''
-
-###########  combining the test and training dataset  ############
-
-train_x, train_y, test_x, test_y = normalize_create (iner_data_5, iner_data_8, iner_data_10)
+filename = 'file.mat'
+total_data = loading(filename)  # load the mat_file including input and output data
+train_x, train_y, test_x, test_y = normalize_data (total_data)
 
 #2. creating the model
-net = Net()
+net = Net(n_inp = 3, n_hid = 5, n_out = 1)
 
 #3. Training the model
 net = net.train()
-bat_size = 10
+bat_size = 128
 loss_func = T.nn.MSELoss()
 optimizer = T.optim.SGD(net.parameters(), lr=0.0001)
 n_items = len(train_x)
 batches_per_epoch = n_items // bat_size
-max_batches = 30 * batches_per_epoch
+max_batches = 100 * batches_per_epoch
 print("Starting training")
 output_full = T.tensor([])
 output_avg = []
@@ -137,12 +88,12 @@ for b in range(max_batches):
     loss_obj = loss_func(oupt, Y)
     loss_obj.backward()
     optimizer.step()
-    if b % (max_batches // 30) == 0:
+    if b % (max_batches // 10) == 0:
       # print(output.size(), end="")
       print("batch = %6d" % b, end="")
       print("  batch loss = %7.4f" % loss_obj.item(), end="")
       net = net.eval()
-      acc = accuracy(net, train_x, train_y, 0.05)
+      acc = accuracy(net, train_x, train_y, 0.005)
       net = net.train()
       print("  accuracy = %0.2f%%" % acc)
     losses.append(loss_obj.item())
@@ -151,7 +102,7 @@ print("Training complete \n")
 
 # 4. Evaluate model
 net = net.eval()  # set eval mode
-acc = accuracy_2(net, test_x, test_y, 0.05)
+acc = accuracy_2(net, test_x, test_y, 0.005)
 print("Accuracy on test data = %0.2f%%" % acc)
 
 # print (output_full.shape)
@@ -226,7 +177,7 @@ plt.title("Trained output in entire batch", **title_font)
 # axins.yaxis.set_visible('False')
 # mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="0.5")
 # plt.grid()
-plt.savefig('output_full_array.png', dpi = 600)
+# plt.savefig('output_full_array.png', dpi = 600)
 plt.show()
 
 '''
@@ -269,7 +220,7 @@ plt.title("Batch training loss vs number of batch", **title_font)
 plt.grid(linestyle='-', linewidth=0.5)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
-plt.savefig('batch_loss.png', dpi = 600)
+# plt.savefig('batch_loss.png', dpi = 600)
 plt.show()
 
 
