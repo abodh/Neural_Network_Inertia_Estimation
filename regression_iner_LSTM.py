@@ -4,11 +4,10 @@ from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 import matplotlib.pyplot as plt
 import torch as T
 from loading_data import loading, normalize_data
-from sklearn.preprocessing import normalize
 import pdb
 
 # Set the font dictionaries (for plot title and axis titles)
-title_font = {'fontname': 'Arial', 'size': '16', 'color': 'black', 'weight': 'normal',
+title_font  = {'fontname': 'Arial', 'size': '16', 'color': 'black', 'weight': 'normal',
               'verticalalignment': 'bottom'}  # Bottom vertical alignment for more space
 axis_font = {'fontname': 'Arial', 'size': '16'}
 
@@ -17,34 +16,25 @@ def accuracy(model, data_x, data_y, pct_close):
   n_items = len(data_y)
   X = T.Tensor(data_x)  # 2-d Tensor
   Y = T.Tensor(data_y)  # actual as 1-d Tensor
+  Y = Y.view(n_items)
+  oupt = model(X)       # all predicted as 2-d Tensor
   # pdb.set_trace()
-  # Y = Y.view(n_items)
-  pred = model(X)       # all predicted as 2-d Tensor
-  pred = pred.data.cpu().numpy()
-  pred = np.where(pred == pred.max(axis=1, keepdims=True), 1, 0)  # winner takes all
-  # pdb.set_trace()
-  pred = T.Tensor(pred)
-  # pred = oupt.view(n_items)  # all predicted as 1-d
+  pred = oupt.view(n_items)  # all predicted as 1-d
   n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
   result = (n_correct.item() * 100.0 / n_items)  # scalar
   return result
 
-def accuracy2(model, data_x, data_y, pct_close):
-    n_items = len(data_y)
-    X = T.Tensor(data_x)  # 2-d Tensor
-    Y = T.Tensor(data_y)  # actual as 1-d Tensor
-    # pdb.set_trace()
-    # Y = Y.view(n_items)
-    pred = model(X)  # all predicted as 2-d Tensor
-    pred = pred.data.cpu().numpy()
-    pred = np.where(pred == pred.max(axis=1, keepdims=True), 1, 0)  # winner takes all
-    # pdb.set_trace()
-    # pred = oupt.view(n_items)  # all predicted as 1-d
-    pred = T.Tensor(pred)
-    n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
-    result = (n_correct.item() * 100.0 / n_items)  # scalar
-    pdb.set_trace()
-    return result
+# def accuracy_2(model, data_x, data_y, pct_close):
+#   n_items = len(data_y)
+#   X = T.Tensor(data_x)  # 2-d Tensor
+#   Y = T.Tensor(data_y)  # actual as 1-d Tensor
+#   Y = Y.view(n_items)
+#   oupt = model(X)       # all predicted as 2-d Tensor
+#   pred = oupt.view(n_items)  # all predicted as 1-d
+#   n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
+#   # pdb.set_trace()
+#   result = (n_correct.item() * 100.0 / n_items)  # scalar
+#   return result
 
 # MLP based model
 class Net(T.nn.Module):
@@ -52,59 +42,39 @@ class Net(T.nn.Module):
     super(Net, self).__init__()
     self.hid = T.nn.Linear(n_inp, n_hid)  # 3-5-1
     self.oupt = T.nn.Linear(n_hid, n_out)
-    T.nn.init.xavier_uniform_(self.hid.weight, gain = 1)
+    T.nn.init.xavier_uniform_(self.hid.weight, gain =1E-5)
     T.nn.init.zeros_(self.hid.bias)
-    T.nn.init.xavier_uniform_(self.oupt.weight, gain = 1)
+    T.nn.init.xavier_uniform_(self.oupt.weight, gain = 1E-5)
     T.nn.init.zeros_(self.oupt.bias)
   def forward(self, x):
-    z = T.sigmoid(self.hid(x))
-    z = T.sigmoid(self.oupt(z))  # no activation, aka Identity()
+    z = T.tanh(self.hid(x))
+    z = self.oupt(z)  # no activation, aka Identity()
     return z
 
 T.manual_seed(1);  np.random.seed(1)
 
 #1. Loading the data from the text(mat) file and normalizing the data using l2 norm
 
-# filename = 'file.mat'
-# # total_data = loading(filename)  # load the mat_file including input and output data
-# # train_x, train_y, test_x, test_y = normalize_data (total_data)
-
-data = np.genfromtxt('irisdata.txt', delimiter = ",")
-data = data[:,0:4]
-normalized_input_data = normalize(data, axis = 0, norm = 'max')
-input_setosa = normalized_input_data[0:25,:]
-input_versicolor = normalized_input_data[50:75,:]
-input_virginica = normalized_input_data[100:125,:]
-
-input_attributes = np.concatenate ((input_setosa, input_versicolor, input_virginica), axis = 0)
-train_x = input_attributes
-
-t1 = np.array([0,0,1])
-target_setosa = np.tile(t1, (25,1))# target output for iris-setosa
-t2 = np.array([0,1,0])
-target_versicolor = np.tile(t2, (25,1)) # target output for iris-versicolor
-t3 = np.array([1,0,0])
-target_virginica = np.tile(t3, (25,1)) # target ouput for iris-virginica
-
-target_output = np.concatenate ((target_setosa, target_versicolor, target_virginica), axis = 0)
-train_y = target_output
-
+filename = 'file.mat'
+total_data = loading(filename)  # load the mat_file including input and output data
+# train_x, train_y, test_x, test_y = normalize_data (total_data)
+train_x, train_y = normalize_data (total_data)
 # pdb.set_trace()
 
 #2. creating the model
-n_inp = 4
-n_hid = 6
-n_out = 3
+n_inp = 3
+n_hid = 5
+n_out = 1
 net = Net(n_inp, n_hid, n_out)
 
 #3. Training the model
 net = net.train()
-bat_size = 1
+bat_size = 10
 loss_func = T.nn.MSELoss()
-optimizer = T.optim.SGD(net.parameters(), lr = 0.3)
+optimizer = T.optim.SGD(net.parameters(), lr=0.01)
 n_items = len(train_x)
 batches_per_epoch = n_items // bat_size
-max_batches = int (100 * batches_per_epoch * 2/3)
+max_batches = 100 * batches_per_epoch
 print("Starting training")
 # pdb.set_trace()
 output_full = T.tensor([])
@@ -116,34 +86,24 @@ losses = []
 for b in range(max_batches):
     curr_bat = np.random.choice(n_items, bat_size, replace=False)
     X = T.Tensor(train_x[curr_bat])
-    # pdb.set_trace()
-    # Y = T.Tensor(train_y[curr_bat]).view(bat_size,1)
-    Y = T.Tensor(train_y[curr_bat])
-    # Y = Y.to(device='cpu', dtype=T.int64)
+    Y = T.Tensor(train_y[curr_bat]).view(bat_size,1)
     # pdb.set_trace()
     optimizer.zero_grad()
     oupt = net(X)
-    # weights = T.cat((weights, net.hid1.weight), 0)
-
     oupt_numpy = oupt.data.cpu().numpy()
     output_full = T.cat((output_full, oupt), 0)
     output_avg.append(np.mean(oupt_numpy))
     loss_obj = loss_func(oupt, Y)
-    # print("A",net.hid.weight.data)
     loss_obj.backward()
-    # pdb.set_trace()
-    # weights.append(np.reshape(net.state_dict()['hid.weight'].cpu().data.cpu().numpy(), (1, n_inp * n_hid)))
     optimizer.step()
-    # print("B",net.hid.weight.data.clone())
-
-    weights.append(np.reshape(net.hid.weight.data.clone().cpu().numpy(),(1, n_inp * n_hid)))
+    weights.append(np.reshape(net.hid.weight.data.clone().cpu().numpy(), (1, n_inp * n_hid)))
     if b % (max_batches // 10) == 0:
         # print(output.size(), end="")
         print("batch = %6d" % b, end="")
         print("  batch loss = %7.4f" % loss_obj.item(), end="")
         net = net.eval()
-        # pdb.set_trace()
-        acc = accuracy(net, train_x, train_y, 1)
+        pdb.set_trace()
+        acc = accuracy(net, train_x, train_y, 0.15)
         net = net.train()
         print("  accuracy = %0.2f%%" % acc)
     losses.append(loss_obj.item())
@@ -159,8 +119,8 @@ plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
 plt.ylabel("weights from input to hidden layer", **axis_font)
 plt.xlabel("Number of batches in entire epoch", **axis_font)
-plt.xlim(0, 5000)
-plt.savefig('iris_weight.png', dpi = 600)
+plt.xlim(0, 39800)
+plt.savefig('iner_caseA_weight.png', dpi = 600, bbox_inches='tight')
 plt.show()
 
 # pdb.set_trace()
@@ -170,14 +130,8 @@ plt.show()
 # pdb.set_trace()
 
 # 4. Evaluate model
-input_setosa_c = normalized_input_data[25:50,:]
-input_versicolor_c = normalized_input_data[75:100,:]
-input_virginica_c = normalized_input_data[125:150,:]
-input_attributes = np.concatenate ((input_setosa_c, input_versicolor_c, input_virginica_c), axis = 0)
-test_x = input_attributes
-
 net = net.eval()  # set eval mode
-acc = accuracy2(net, test_x, train_y, 1)
+acc = accuracy(net, test_x, test_y, 0.15)
 print("Accuracy on test data = %0.2f%%" % acc)
 
 # print (output_full.shape)
@@ -231,32 +185,32 @@ output_full_array = output_full.data.cpu().numpy()
 
 ############  full output plot  #############
 
-# fig, ax = plt.subplots()
-# ax.plot(output_full_array)
-# # ax.plot(output)
-# ax.set_xlim(0, 54000) # apply the x-limits
-# # ax.set_ylim(0, 10) # apply the y-limits
-# # plt.hlines(10, 0, 6000, colors='r', linestyles='dashed', linewidth=3)
-# plt.grid(linestyle='-', linewidth=0.5)
-# plt.xticks(fontsize=14)
-# plt.yticks(fontsize=14)
-# plt.ylabel("Estimated Inertia", **axis_font)
-# plt.xlabel("Number of batches in entire epoch", **axis_font)
-# plt.title("Trained output in entire batch", **title_font)
-# # plt.show()
-# # axins = zoomed_inset_axes(ax, 2.5, loc=4) # zoom-factor: 2.5, location: upper-left
-# # axins.plot(output_full_array)
-# # x1, x2, y1, y2 = 25000, 30000, 6, 8 # specify the limits
-# # axins.set_xlim(x1, x2) # apply the x-limits
-# # axins.set_ylim(y1, y2) # apply the y-limits
-# # plt.yticks(visible=False)
-# # plt.xticks(visible=False)
-# # axins.xaxis.set_visible('False')
-# # axins.yaxis.set_visible('False')
-# # mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="0.5")
-# # plt.grid()
-# # plt.savefig('output_full_array.png', dpi = 600)
+fig, ax = plt.subplots()
+ax.plot(output_full_array)
+# ax.plot(output)
+ax.set_xlim(0, 39800) # apply the x-limits
+# ax.set_ylim(0, 10) # apply the y-limits
+# plt.hlines(10, 0, 6000, colors='r', linestyles='dashed', linewidth=3)
+plt.grid(linestyle='-', linewidth=0.5)
+plt.xticks(fontsize=12)
+plt.yticks(fontsize=12)
+plt.ylabel("Estimated Inertia", **axis_font)
+plt.xlabel("Number of batches in entire epoch", **axis_font)
+plt.title("Trained output in entire batch", **title_font)
 # plt.show()
+# axins = zoomed_inset_axes(ax, 2.5, loc=4) # zoom-factor: 2.5, location: upper-left
+# axins.plot(output_full_array)
+# x1, x2, y1, y2 = 25000, 30000, 6, 8 # specify the limits
+# axins.set_xlim(x1, x2) # apply the x-limits
+# axins.set_ylim(y1, y2) # apply the y-limits
+# plt.yticks(visible=False)
+# plt.xticks(visible=False)
+# axins.xaxis.set_visible('False')
+# axins.yaxis.set_visible('False')
+# mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="0.5")
+# plt.grid()
+plt.savefig('iner_caseA.png', dpi = 600, bbox_inches='tight')
+plt.show()
 
 '''
     ############  averaged output plot  #############
@@ -290,7 +244,7 @@ output_full_array = output_full.data.cpu().numpy()
 ############ loss #############
 fig, axx = plt.subplots()
 axx.plot(losses)
-axx.set_xlim(0, 5400) # apply the x-limits
+axx.set_xlim(0, 3980) # apply the x-limits
 # axx.set_ylim(0, 100) # apply the y-limits
 plt.ylabel("Mean Squared Error", **axis_font)
 plt.xlabel("Number of batches", **axis_font)
@@ -298,7 +252,7 @@ plt.title("Batch training loss vs number of batch", **title_font)
 plt.grid(linestyle='-', linewidth=0.5)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
-# plt.savefig('batch_loss.png', dpi = 600)
+plt.savefig('batch_loss_caseA.png', dpi = 600, bbox_inches='tight')
 plt.show()
 
 

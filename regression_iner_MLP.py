@@ -9,7 +9,7 @@ import pdb
 # Set the font dictionaries (for plot title and axis titles)
 title_font = {'fontname': 'Arial', 'size': '16', 'color': 'black', 'weight': 'normal',
               'verticalalignment': 'bottom'}  # Bottom vertical alignment for more space
-axis_font = {'fontname': 'Arial', 'size': '14'}
+axis_font = {'fontname': 'Arial', 'size': '16'}
 
 
 def accuracy(model, data_x, data_y, pct_close):
@@ -17,37 +17,38 @@ def accuracy(model, data_x, data_y, pct_close):
   X = T.Tensor(data_x)  # 2-d Tensor
   Y = T.Tensor(data_y)  # actual as 1-d Tensor
   Y = Y.view(n_items)
+  pdb.set_trace()
   oupt = model(X)       # all predicted as 2-d Tensor
-  # pdb.set_trace()
+  pdb.set_trace()
   pred = oupt.view(n_items)  # all predicted as 1-d
   n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
   result = (n_correct.item() * 100.0 / n_items)  # scalar
   return result
 
-# def accuracy_2(model, data_x, data_y, pct_close):
-#   n_items = len(data_y)
-#   X = T.Tensor(data_x)  # 2-d Tensor
-#   Y = T.Tensor(data_y)  # actual as 1-d Tensor
-#   Y = Y.view(n_items)
-#   oupt = model(X)       # all predicted as 2-d Tensor
-#   pred = oupt.view(n_items)  # all predicted as 1-d
-#   n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
-#   # pdb.set_trace()
-#   result = (n_correct.item() * 100.0 / n_items)  # scalar
-#   return result
+def accuracy_2(model, data_x, data_y, pct_close):
+  n_items = len(data_y)
+  X = T.Tensor(data_x)  # 2-d Tensor
+  Y = T.Tensor(data_y)  # actual as 1-d Tensor
+  Y = Y.view(n_items)
+  oupt = model(X)       # all predicted as 2-d Tensor
+  pred = oupt.view(n_items)  # all predicted as 1-d
+  n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
+  pdb.set_trace()
+  result = (n_correct.item() * 100.0 / n_items)  # scalar
+  return result
 
 # MLP based model
 class Net(T.nn.Module):
-  def __init__(self, n_inp, n_hid, n_out):
+  def __init__(self, n_inp, n_hid1, n_out):
     super(Net, self).__init__()
-    self.hid = T.nn.Linear(n_inp, n_hid)  # 3-5-1
-    self.oupt = T.nn.Linear(n_hid, n_out)
-    T.nn.init.xavier_uniform_(self.hid.weight, gain =0.2)
-    T.nn.init.zeros_(self.hid.bias)
-    T.nn.init.xavier_uniform_(self.oupt.weight, gain = 0.2)
+    self.hid1 = T.nn.Linear(n_inp, n_hid1)  # 3-5-1
+    self.oupt = T.nn.Linear(n_hid1, n_out)
+    T.nn.init.xavier_uniform_(self.hid1.weight, gain = 0.01)
+    T.nn.init.zeros_(self.hid1.bias)
+    T.nn.init.xavier_uniform_(self.oupt.weight, gain = 0.01)
     T.nn.init.zeros_(self.oupt.bias)
   def forward(self, x):
-    z = T.tanh(self.hid(x))
+    z = T.tanh(self.hid1(x))
     z = self.oupt(z)  # no activation, aka Identity()
     return z
 
@@ -57,21 +58,24 @@ T.manual_seed(1);  np.random.seed(1)
 
 filename = 'file.mat'
 total_data = loading(filename)  # load the mat_file including input and output data
-train_x, train_y, test_x, test_y = normalize_data (total_data)
+# pdb.set_trace()
+# train_x, train_y, test_x, test_y = normalize_data (total_data)
+train_x, train_y = normalize_data (total_data)
 
 # pdb.set_trace()
 
 #2. creating the model
-n_inp = 3
-n_hid = 5
+n_inp = 20
+n_hid1 = 10
+# n_hid2 = 10
 n_out = 1
-net = Net(n_inp, n_hid, n_out)
+net = Net(n_inp, n_hid1, n_out)
 
 #3. Training the model
 net = net.train()
-bat_size = 32
+bat_size = 1
 loss_func = T.nn.MSELoss()
-optimizer = T.optim.SGD(net.parameters(), lr=0.005)
+optimizer = T.optim.SGD(net.parameters(), lr=0.01)
 n_items = len(train_x)
 batches_per_epoch = n_items // bat_size
 max_batches = 10 * batches_per_epoch
@@ -83,12 +87,27 @@ weights = []
 output_avg = []
 losses = []
 # pdb.set_trace()
+choice_a = 0
+choice_b = 1
 for b in range(max_batches):
-    curr_bat = np.random.choice(n_items, bat_size, replace=False)
-    X = T.Tensor(train_x[curr_bat])
-    Y = T.Tensor(train_y[curr_bat]).view(bat_size,1)
+    # curr_bat = np.random.choice(n_items, bat_size, replace=False)
+    # pdb.set_trace()
+    curr_bat = np.arange(choice_a , (10 * choice_b))
+    choice_a = choice_a + 10
+    choice_b = choice_b + 1
+    if (np.where(curr_bat >= len(train_x))):
+        choice_a = 0
+        choice_b = 1
+        curr_bat = np.arange(choice_a, (10 * choice_b))
+        choice_a = choice_a + 10
+        choice_b = choice_b + 1
+    current_train = train_x[curr_bat]
+    X = T.Tensor(np.transpose(np.stack((current_train[:,0],current_train[:,1])).reshape((-1,1))))
+    # Y = T.Tensor(train_y[curr_bat]).view(bat_size,1)
+    Y = T.Tensor(train_y[curr_bat])
     # pdb.set_trace()
     optimizer.zero_grad()
+    # pdb.set_trace()
     oupt = net(X)
     oupt_numpy = oupt.data.cpu().numpy()
     output_full = T.cat((output_full, oupt), 0)
@@ -96,15 +115,18 @@ for b in range(max_batches):
     loss_obj = loss_func(oupt, Y)
     loss_obj.backward()
     optimizer.step()
-    weights.append(np.reshape(net.hid.weight.data.clone().cpu().numpy(), (1, n_inp * n_hid)))
-    if b % (max_batches // 10) == 0:
+    weights.append(np.reshape(net.hid1.weight.data.clone().cpu().numpy(), (1, n_inp * n_hid1)))
+    # pdb.set_trace()
+    if b % (max_batches // 398) == 0:
         # print(output.size(), end="")
         print("batch = %6d" % b, end="")
-        print("  batch loss = %7.4f" % loss_obj.item(), end="")
-        net = net.eval()
-        acc = accuracy(net, train_x, train_y, 0.15)
-        net = net.train()
-        print("  accuracy = %0.2f%%" % acc)
+        # print("  batch loss = %7.4f" % loss_obj.item(), end="")
+        print("  batch loss = %7.4f" % loss_obj.item())
+        # net = net.eval()
+        # # pdb.set_trace()
+        # acc = accuracy(net, train_x, train_y, 0.10)
+        # net = net.train()
+        # print("  accuracy = %0.2f%%" % acc)
     losses.append(loss_obj.item())
 print("Training complete \n")
 # pdb.set_trace()
@@ -113,11 +135,15 @@ weights_num = int(np.shape(weights)[1])
 # label_graph = ['Out1', 'Out2', 'Out3', 'Out4']
 for i in range(0, weights_num):
     plt.plot(weights[:,i])
-plt.grid()
-plt.ylabel("weights")
-plt.xlabel("Number of epoch")
-plt.title("weights vs epoch")
+plt.grid(linestyle='-', linewidth=0.5)
+plt.xticks(fontsize=14)
+plt.yticks(fontsize=14)
+plt.ylabel("weights from input to hidden layer", **axis_font)
+plt.xlabel("Number of batches in entire epoch", **axis_font)
+plt.xlim(0, 500)
+plt.savefig('iner_caseB_weight.png', dpi = 600, bbox_inches='tight')
 plt.show()
+
 
 # pdb.set_trace()
 
@@ -126,9 +152,9 @@ plt.show()
 # pdb.set_trace()
 
 # 4. Evaluate model
-net = net.eval()  # set eval mode
-acc = accuracy(net, test_x, test_y, 0.15)
-print("Accuracy on test data = %0.2f%%" % acc)
+# net = net.eval()  # set eval mode
+# acc = accuracy_2(net, test_x, test_y, 0.2)
+# print("Accuracy on test data = %0.2f%%" % acc)
 
 # print (output_full.shape)
 output_full_array = output_full.data.cpu().numpy()
@@ -179,34 +205,34 @@ output_full_array = output_full.data.cpu().numpy()
 '''
 
 
-############  full output plot  #############
-
-fig, ax = plt.subplots()
-ax.plot(output_full_array)
-# ax.plot(output)
-ax.set_xlim(0, 54000) # apply the x-limits
-# ax.set_ylim(0, 10) # apply the y-limits
-# plt.hlines(10, 0, 6000, colors='r', linestyles='dashed', linewidth=3)
-plt.grid(linestyle='-', linewidth=0.5)
-plt.xticks(fontsize=14)
-plt.yticks(fontsize=14)
-plt.ylabel("Estimated Inertia", **axis_font)
-plt.xlabel("Number of batches in entire epoch", **axis_font)
-plt.title("Trained output in entire batch", **title_font)
+# ############  full output plot  #############
+#
+# fig, ax = plt.subplots()
+# ax.plot(output_full_array)
+# # ax.plot(output)
+# ax.set_xlim(0, 54000) # apply the x-limits
+# # ax.set_ylim(0, 10) # apply the y-limits
+# # plt.hlines(10, 0, 6000, colors='r', linestyles='dashed', linewidth=3)
+# plt.grid(linestyle='-', linewidth=0.5)
+# plt.xticks(fontsize=14)
+# plt.yticks(fontsize=14)
+# plt.ylabel("Estimated Inertia", **axis_font)
+# plt.xlabel("Number of batches in entire epoch", **axis_font)
+# plt.title("Trained output in entire batch", **title_font)
+# # plt.show()
+# # axins = zoomed_inset_axes(ax, 2.5, loc=4) # zoom-factor: 2.5, location: upper-left
+# # axins.plot(output_full_array)
+# # x1, x2, y1, y2 = 25000, 30000, 6, 8 # specify the limits
+# # axins.set_xlim(x1, x2) # apply the x-limits
+# # axins.set_ylim(y1, y2) # apply the y-limits
+# # plt.yticks(visible=False)
+# # plt.xticks(visible=False)
+# # axins.xaxis.set_visible('False')
+# # axins.yaxis.set_visible('False')
+# # mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="0.5")
+# # plt.grid()
+# # plt.savefig('output_full_array.png', dpi = 600)
 # plt.show()
-# axins = zoomed_inset_axes(ax, 2.5, loc=4) # zoom-factor: 2.5, location: upper-left
-# axins.plot(output_full_array)
-# x1, x2, y1, y2 = 25000, 30000, 6, 8 # specify the limits
-# axins.set_xlim(x1, x2) # apply the x-limits
-# axins.set_ylim(y1, y2) # apply the y-limits
-# plt.yticks(visible=False)
-# plt.xticks(visible=False)
-# axins.xaxis.set_visible('False')
-# axins.yaxis.set_visible('False')
-# mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="0.5")
-# plt.grid()
-# plt.savefig('output_full_array.png', dpi = 600)
-plt.show()
 
 '''
     ############  averaged output plot  #############
@@ -240,7 +266,7 @@ plt.show()
 ############ loss #############
 fig, axx = plt.subplots()
 axx.plot(losses)
-axx.set_xlim(0, 5400) # apply the x-limits
+axx.set_xlim(0, 500) # apply the x-limits
 # axx.set_ylim(0, 100) # apply the y-limits
 plt.ylabel("Mean Squared Error", **axis_font)
 plt.xlabel("Number of batches", **axis_font)
@@ -248,7 +274,7 @@ plt.title("Batch training loss vs number of batch", **title_font)
 plt.grid(linestyle='-', linewidth=0.5)
 plt.xticks(fontsize=14)
 plt.yticks(fontsize=14)
-# plt.savefig('batch_loss.png', dpi = 600)
+plt.savefig('batch_loss_caseB.png', dpi = 600, bbox_inches='tight')
 plt.show()
 
 

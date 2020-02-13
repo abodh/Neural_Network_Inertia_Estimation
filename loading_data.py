@@ -21,16 +21,27 @@ def normalize_data (total_data):
 
     # permuted_total_data = np.random.permutation(total_data)
     permuted_total_data = total_data[:,:]
-    train_num = int(0.8 * len(permuted_total_data))  # generalizes for all, use any of the inertia values data to get length
+    # train_num = int(0.8 * len(permuted_total_data))  # generalizes for all, use any of the inertia values data to get length
+    train_num = len(permuted_total_data)
 
     # normalized_input_data = normalize(permuted_total_data[:, 0:3], axis=0, norm='l2')
-    normalized_input_data = permuted_total_data[:, 0:3]
+    train_5 = total_data[np.where(total_data[:,-1]==5)]
+    train_10 = total_data[np.where(total_data[:, -1] == 10)]
+    train_15 = total_data[np.where(total_data[:, -1] == 15)]
+    train_20 = total_data[np.where(total_data[:, -1] == 20)]
+    train_25 = total_data[np.where(total_data[:, -1] == 25)]
+
+    training_data = np.stack((train_5, train_10, train_15, train_20, train_25))
+    training_data = training_data.reshape((-1,4))
+    # training_data = permuted_total_data[:,:]
+    normalized_input_data = training_data[:, 0:3]
     train_x = normalized_input_data[0:train_num, :]
-    train_y = np.transpose(permuted_total_data[0:train_num, np.shape(permuted_total_data)[1]-1])
-    test_x = normalized_input_data[train_num:np.shape(permuted_total_data)[0], :]
-    test_y = np.transpose(permuted_total_data[train_num:np.shape(permuted_total_data)[0], np.shape(permuted_total_data)[1]-1])
-    pdb.set_trace()
-    return train_x, train_y, test_x, test_y
+    train_y = np.transpose(training_data[0:train_num, np.shape(training_data)[1]-1])
+    # test_x = normalized_input_data[train_num:np.shape(training_data)[0], :]
+    # test_y = np.transpose(training_data[train_num:np.shape(training_data)[0], np.shape(training_data)[1]-1])
+    # pdb.set_trace()
+    return train_x, train_y, \
+           # test_x, test_y
 
 if __name__ == '__main__':
     ans = loading('file.mat')
