@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
-from sklearn.preprocessing import normalize
+from sklearn.preprocessing import normalize, MinMaxScaler
+import matplotlib.pyplot as plt
 import pdb
 
 def loading(filename):
@@ -19,7 +20,6 @@ def normalize_data (total_data):
         train x, train y, test x, test y
     '''
 
-    # permuted_total_data = np.random.permutation(total_data)
     permuted_total_data = total_data[:,:]
     # train_num = int(0.8 * len(permuted_total_data))  # generalizes for all, use any of the inertia values data to get length
     train_num = len(permuted_total_data)
@@ -43,10 +43,36 @@ def normalize_data (total_data):
     return train_x, train_y, \
            # test_x, test_y
 
+def ext(data):
+    norm_data = normalize(data[0:199, 0].reshape(-1, 1), axis = 0, norm='l2')
+    norm_dist = (data[0:199,0] - (np.max(data[0:199,0])))/((np.max(data[0:199,0]))- (np.min(data[0:199,0])))
+    return data[0:199,0], norm_data, norm_dist
+
 if __name__ == '__main__':
     ans = loading('file.mat')
-    print (np.shape(ans))
-    print (len(ans))
-    # print(ans)
-    train_x, train_y, test_x, test_y  = normalize_data(ans)
-    pdb.set_trace()
+    # pdb.set_trace()
+    org_data, norm_data, norm_dist = ext(ans)
+
+    ax1 = plt.subplot(311)
+    plt.plot(org_data)
+    plt.setp(ax1.get_xticklabels(), fontsize=6)
+
+    # share x only
+    ax2 = plt.subplot(312, sharex=ax1)
+    plt.plot(norm_data)
+    # make these tick labels invisible
+    plt.setp(ax2.get_xticklabels(), visible=False)
+
+    ax3 = plt.subplot(313, sharex=ax1)
+    plt.plot(norm_dist)
+    # make these tick labels invisible
+    plt.setp(ax3.get_xticklabels(), visible=False)
+
+
+    plt.show()
+    # pdb.set_trace()
+    # print (np.shape(ans))
+    # print (len(ans))
+    # # print(ans)
+    # train_x, train_y, test_x, test_y  = normalize_data(ans)
+    # pdb.set_trace()
