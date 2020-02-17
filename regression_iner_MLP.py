@@ -1,4 +1,5 @@
 import numpy as np
+import h5py
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 import matplotlib.pyplot as plt
@@ -28,17 +29,20 @@ def accuracy(model, train_f, train_rf, train_p, train_M, pct_close):
   # pdb.set_trace()
   return result
 
-# def accuracy_2(model, data_x, data_y, pct_close):
-#   n_items = len(data_y)
-#   X = T.Tensor(data_x)  # 2-d Tensor
-#   Y = T.Tensor(data_y)  # actual as 1-d Tensor
-#   Y = Y.view(n_items)
-#   oupt = model(X)       # all predicted as 2-d Tensor
-#   pred = oupt.view(n_items)  # all predicted as 1-d
-#   n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
-#   pdb.set_trace()
-#   result = (n_correct.item() * 100.0 / n_items)  # scalar
-#   return result
+def accuracy2(model, train_f, train_rf, train_p, train_M, pct_close):
+  n_items = len(train_M)
+  X1 = T.Tensor(train_f)  # 2-d Tensor
+  X2 = T.Tensor(train_rf)
+  X3 = T.Tensor (train_p)
+  X3 = X3.reshape(-1,1)
+  Y = T.Tensor(train_M)  # actual as 1-d Tensor
+  oupt = model(X1, X2, X3)       # all predicted as 2-d Tensor
+  pred = oupt.view(n_items)  # all predicted as 1-d
+  n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
+  result = (n_correct.item() * 100.0 / n_items)  # scalar
+  # pdb.set_trace()
+  return result
+
 
 # MLP based model
 class Net(T.nn.Module):
@@ -77,8 +81,7 @@ if __name__ == '__main__':
     file_freq = path + 'freq_norm.mat'
     file_rocof = path + 'rocof_norm.mat'
     freq_data, rocof_data = loading(file_freq, file_rocof)
-    train_f, train_rf, train_p, train_M = separate_dataset(freq_data, rocof_data)
-    # train_x, train_y, test_x, test_y = separate_dataset(total_data)
+    train_f, train_rf, train_p, train_M, test_f, test_rf, test_p, test_M = separate_dataset(freq_data, rocof_data)
 
     ###################################################################################################################
                          ###################      2. creating the model      #######################
@@ -145,100 +148,65 @@ if __name__ == '__main__':
     plt.yticks(fontsize=14)
     plt.ylabel("weights from input to hidden layer", **axis_font)
     plt.xlabel("Number of batches in entire epoch", **axis_font)
-    plt.xlim(0, 5000)
+    plt.xlim(0, 20000)
     # plt.savefig('iner_caseB_weight.png', dpi = 600, bbox_inches='tight')
-    plt.show()
+    # plt.show()
 
+    ###################################################################################################################
+                    ###################      4. Evaluating the model      #######################
 
-    # pdb.set_trace()
+    net = net.eval()  # set eval mode
+    acc = accuracy2(net, test_f, test_rf, test_p, test_M, 0.05)
+    print("Accuracy on test data = %0.2f%%" % acc)
 
-    # for param in net.parameters():
-    #   print(param.data)
-    # pdb.set_trace()
-
-    # 4. Evaluate model
-    # net = net.eval()  # set eval mode
-    # acc = accuracy_2(net, test_x, test_y, 0.2)
-    # print("Accuracy on test data = %0.2f%%" % acc)
-
-    # print (output_full.shape)
     output_full_array = output_full.data.cpu().numpy()
-    # print (np.shape(output_avg))
-    # np.savetxt('inertiaout.csv', arr)
 
-    # print (weight.shape)
-    # print(losses)
-    # arr1 = weight.data.cpu().numpy()
-    # np.savetxt('weights.csv', arr1)
+    ###################################################################################################################
+                    ###################      5. Using the model      #######################
 
-    # weights_array = weights.data.cpu().numpy()
+    eval_file = h5py.File(path + 'eval_data.mat', 'r')
+    eval_var = eval_file.get('x')
+    f_var = np.array(eval_var[0:75, :]).T
+    rocof_var = np.array(eval_var[75:150, :]).T
+    power_var = np.array(eval_var[150, :]).T
+    X1 = T.Tensor(f_var)
+    X2 = T.Tensor(rocof_var)
+    X3 = T.Tensor(power_var).view(1, 1)
+    y = net(X1, X2, X3)
     # pdb.set_trace()
-
-    '''
-        # 5. Use model
-        eval_data = loading(inertia = 5,                       # value of inertia to be tested
-                          low = 10,                            # lower limit of data to be captured
-                          high = 12.5,                         # upper limit of the data to be captured
-                          f_file = 'frequency_5.mat',          # frequency data mat file
-                          rocof_file = 'rocofrequency_5.mat')  # rocof data mat file
-        
-        # number of data to evaluate
-        eval_num = int(len(eval_data))
-        # pdb.set_trace()
-        # data normalization and separating training and testing data
-        normalized_eval_data = normalize(eval_data[:,0:2], axis = 0, norm = 'l2')
-        eval_x = normalized_eval_data [0:eval_num,:]
-        X = T.Tensor(eval_x)
-        y = net(X)
-        pred_array = y.view(eval_num).data.cpu().numpy()
-        
-        ############ predicted value #############
-        fig, axx = plt.subplots()
-        axx.plot(pred_array)
-        axx.set_xlim(0, 1250) # apply the x-limits
-        # axx.set_ylim(0, 12) # apply the y-limits
-        plt.ylabel("Predicted Inertia", **axis_font)
-        plt.xlabel("ID of evaluating samples", **axis_font)
-        plt.title("Inertia vs frequency", **title_font)
-        # plt.hlines(5, 0, 1250, colors='r', linestyles='dashed', linewidth=3)
-        plt.grid(linestyle='-', linewidth=0.5)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
-        plt.savefig('prediction_5.png', dpi = 600)
-        plt.show()
     
     '''
 
+    ############  full output plot  #############
 
-    # ############  full output plot  #############
-    #
-    # fig, ax = plt.subplots()
-    # ax.plot(output_full_array)
-    # # ax.plot(output)
-    # ax.set_xlim(0, 54000) # apply the x-limits
-    # # ax.set_ylim(0, 10) # apply the y-limits
-    # # plt.hlines(10, 0, 6000, colors='r', linestyles='dashed', linewidth=3)
-    # plt.grid(linestyle='-', linewidth=0.5)
-    # plt.xticks(fontsize=14)
-    # plt.yticks(fontsize=14)
-    # plt.ylabel("Estimated Inertia", **axis_font)
-    # plt.xlabel("Number of batches in entire epoch", **axis_font)
-    # plt.title("Trained output in entire batch", **title_font)
-    # # plt.show()
-    # # axins = zoomed_inset_axes(ax, 2.5, loc=4) # zoom-factor: 2.5, location: upper-left
-    # # axins.plot(output_full_array)
-    # # x1, x2, y1, y2 = 25000, 30000, 6, 8 # specify the limits
-    # # axins.set_xlim(x1, x2) # apply the x-limits
-    # # axins.set_ylim(y1, y2) # apply the y-limits
-    # # plt.yticks(visible=False)
-    # # plt.xticks(visible=False)
-    # # axins.xaxis.set_visible('False')
-    # # axins.yaxis.set_visible('False')
-    # # mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="0.5")
-    # # plt.grid()
-    # # plt.savefig('output_full_array.png', dpi = 600)
+    fig, ax = plt.subplots()
+    ax.plot(output_full_array)
+    # ax.plot(output)
+    ax.set_xlim(0, 20000) # apply the x-limits
+    # ax.set_ylim(0, 10) # apply the y-limits
+    # plt.hlines(10, 0, 6000, colors='r', linestyles='dashed', linewidth=3)
+    plt.grid(linestyle='-', linewidth=0.5)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.ylabel("Estimated Inertia", **axis_font)
+    plt.xlabel("Number of batches in entire epoch", **axis_font)
+    plt.title("Trained output in entire batch", **title_font)
     # plt.show()
+    # axins = zoomed_inset_axes(ax, 2.5, loc=4) # zoom-factor: 2.5, location: upper-left
+    # axins.plot(output_full_array)
+    # x1, x2, y1, y2 = 25000, 30000, 6, 8 # specify the limits
+    # axins.set_xlim(x1, x2) # apply the x-limits
+    # axins.set_ylim(y1, y2) # apply the y-limits
+    # plt.yticks(visible=False)
+    # plt.xticks(visible=False)
+    # axins.xaxis.set_visible('False')
+    # axins.yaxis.set_visible('False')
+    # mark_inset(ax, axins, loc1=1, loc2=3, fc="none", ec="0.5")
+    # plt.grid()
+    # plt.savefig('output_full_array.png', dpi = 600)
+    plt.show()
 
+    '''
     '''
         ############  averaged output plot  #############
         fig, ax = plt.subplots()
@@ -271,7 +239,7 @@ if __name__ == '__main__':
     ############ loss #############
     fig, axx = plt.subplots()
     axx.plot(losses)
-    axx.set_xlim(0, 5000) # apply the x-limits
+    axx.set_xlim(0, 20000) # apply the x-limits
     # axx.set_ylim(0, 100) # apply the y-limits
     plt.ylabel("Mean Squared Error", **axis_font)
     plt.xlabel("Number of batches", **axis_font)
