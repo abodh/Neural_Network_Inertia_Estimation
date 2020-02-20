@@ -1,0 +1,22 @@
+M = [1, 4, 7, 10, 13]s
+p = [0.1 0.2 0.3 0.4 0.5]% pu 
+
+Number of input = 151 (75 freq + 75 rocof + 1 del p)
+number of hidden = 7 (ln(151)/ln(2))
+umber of output = 1
+
+activation = tanh
+loss = MSE
+accuracy = 15% while training 5% while testing
+learning rate = 0.001
+number of epochs = 1000
+number of training sets = 20
+number of batches = 20000
+
+
+results:
+training accuracy = ~90%
+testing accuracy = ~100% (for tolerance of 5%)
+
+87% accurate when fed with the data from M = 5s
+calculated to be M = 4.3591s
