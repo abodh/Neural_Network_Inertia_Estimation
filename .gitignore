@@ -1,6 +1,8 @@
 loading_data.py
+irisdata.txt
 regression_AEcheck_MLP.py
 regression_iner_LSTM.py
-regression_iner_MLP.py
+regression_iner_MLP_single.py
+/slprj/
 /__pycache__/
 
