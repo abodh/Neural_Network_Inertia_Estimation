@@ -15,34 +15,42 @@ title_font = {'fontname': 'Arial', 'size': '16', 'color': 'black', 'weight': 'no
 axis_font = {'fontname': 'Arial', 'size': '16'}
 
 
-def accuracy(model, train_f, train_rf, train_p, train_M, pct_close):
-
+# def accuracy(model, train_f, train_rf, train_p, train_M, pct_close):
+def accuracy(model, train_f, train_rf, train_M, pct_close):
   n_items = len(train_M)
   X1 = T.Tensor(train_f)        # 2-d Tensor
   X2 = T.Tensor(train_rf)       # 2-d Tensor
-  X3 = T.Tensor (train_p)
-  X3 = X3.reshape(-1,1)         # reshaping to 2-d Tensor
+  # X3 = T.Tensor (train_p)
+  # X3 = X3.reshape(-1,1)       # reshaping to 2-d Tensor
   Y = T.Tensor(train_M)         # actual as 1-d Tensor
-  oupt = model(X1, X2, X3)      # all predicted as 2-d Tensor
+  # oupt = model(X1, X2, X3)    # all predicted as 2-d Tensor
+  oupt = model(X1, X2)
   pred = oupt.view(n_items)     # all predicted as 1-d
+  RMSE = m.sqrt(T.mean((Y-pred)**2))
+  MAPE = 100 * (T.mean((T.abs(Y-pred)/Y)))
+  # pdb.set_trace()
   n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
   result = (n_correct.item() * 100.0 / n_items)  # scalar
   # pdb.set_trace()
-  return result
+  return result, RMSE, MAPE
 
-def accuracy2(model, train_f, train_rf, train_p, train_M, pct_close):
+# def accuracy2(model, train_f, train_rf, train_p, train_M, pct_close):
+def accuracy2(model, train_f, train_rf, train_M, pct_close):
   n_items = len(train_M)
   X1 = T.Tensor(train_f)  # 2-d Tensor
   X2 = T.Tensor(train_rf)
-  X3 = T.Tensor (train_p)
-  X3 = X3.reshape(-1,1)
+  # X3 = T.Tensor (train_p)
+  # X3 = X3.reshape(-1,1)       # reshaping to 2-d Tensor
   Y = T.Tensor(train_M)  # actual as 1-d Tensor
-  oupt = model(X1, X2, X3)       # all predicted as 2-d Tensor
+  # oupt = model(X1, X2, X3)    # all predicted as 2-d Tensor
+  oupt = model(X1, X2)
   pred = oupt.view(n_items)  # all predicted as 1-d
+  RMSE_test = m.sqrt(T.mean((Y - pred) ** 2))
+  MAPE_test = 100 * (T.mean((T.abs(Y - pred) / Y)))
   n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
   result = (n_correct.item() * 100.0 / n_items)  # scalar
   pdb.set_trace()
-  return result
+  return result, RMSE_test, MAPE_test
 
 # MLP based model
 class Net(T.nn.Module):
@@ -64,8 +72,9 @@ class Net(T.nn.Module):
     T.nn.init.zeros_(self.oupt.bias)
 
   def forward(self, X1,X2,X3):
-    x = T.cat((X1, X2, X3), dim=1) # concatenating the input vectors
+    # x = T.cat((X1, X2, X3), dim=1) # concatenating the input vectors
     # pdb.set_trace()
+    x = T.cat((X1, X2), dim=1)
     z = T.tanh(self.hid1(x))
     z = T.tanh(self.hid2(z))
     z = self.oupt(z)  # no activation, aka Identity()
@@ -89,7 +98,7 @@ if __name__ == '__main__':
         loading() returns the array of freq_data and rocof_data
         separate_dataset() returns the separate training and testing dataset
     '''
-    path = ".\\data files\\new_data_1000_samples\\manipulated\\"
+    path = ".\\data files\\noisy_data_1000\\manipulated\\"
     file_freq = path + 'freq_norm.mat'
     file_rocof = path + 'rocof_norm.mat'
     freq_data, rocof_data = loading(file_freq, file_rocof)
@@ -103,7 +112,8 @@ if __name__ == '__main__':
         n_out (number of output nodes): calculated the number of output to be provided from the training dataset  
     
     '''
-    n_inp = len(train_f[0]) + len(train_rf[0]) + len([train_p[0]])
+    # n_inp = len(train_f[0]) + len(train_rf[0]) + len([train_p[0]])
+    n_inp = len(train_f[0]) + len(train_rf[0])
     n_hid1 = int(m.log(n_inp)/m.log(2)) + 3
     # pdb.set_trace()
     n_hid2 = n_hid1
@@ -127,18 +137,19 @@ if __name__ == '__main__':
     weight_ho = []                  # storing the weights from hidden unit to output unit
     output_avg = []                 # storing the average output of the model
     losses = []                     # storing the batch losses
-    # avg_loss = np.zeros((20000,1))
-    # for run in range(10):
-    # losses = []
+    # avg_loss = np.zeros((800,1))
+    # for run in range(20):
+    #     losses = []
     for b in range(max_batches):
         curr_bat = np.random.choice(n_items, bat_size, replace=False)
         X1 = T.Tensor(train_f[curr_bat])
         X2 = T.Tensor(train_rf[curr_bat])
-        X3 = T.Tensor(train_p[curr_bat]).view(bat_size, 1)
+        # X3 = T.Tensor(train_p[curr_bat]).view(bat_size, 1)
         Y = T.Tensor(train_M[curr_bat]).view(bat_size, 1)
         # pdb.set_trace()
         optimizer.zero_grad()
-        oupt = net(X1,X2,X3)
+        # oupt = net(X1,X2,X3)
+        oupt = net(X1, X2)
         # oupt_numpy = oupt.data.cpu().numpy()
         output_full = T.cat((output_full, oupt), 0)
         # output_avg.append(np.mean(oupt_numpy))
@@ -153,11 +164,14 @@ if __name__ == '__main__':
             print("batch = %6d" % b, end="")
             print("  batch loss = %7.4f" % loss_obj.item(), end="")
             net = net.eval()
-            acc = accuracy(net, train_f, train_rf, train_p, train_M, 0.1)
+            # acc, RMSE, MAPE = accuracy(net, train_f, train_rf, train_p, train_M, 0.1)
+            acc, RMSE, MAPE = accuracy(net, train_f, train_rf, train_M, 0.1)
             net = net.train()
-            print("  accuracy = %0.2f%%" % acc)
+            print("  accuracy = %0.2f%%" % acc, end="")
+            print("  MAPE = %0.3f%%" % MAPE, end="")
+            print("  RMSE = %7.4f" % RMSE)
         losses.append([loss_obj.item()])
-        # avg_loss = np.concatenate((avg_loss,losses), axis = 1)
+    # avg_loss = np.concatenate((avg_loss,losses), axis = 1)
     print("Training complete \n")
 
     # avg_loss = np.mean(avg_loss[:,1:], axis = 1)
@@ -181,26 +195,32 @@ if __name__ == '__main__':
                     ###################      4. Evaluating the model      #######################
 
     net = net.eval()  # set eval mode
-    acc1 = accuracy2(net, test_f, test_rf, test_p, test_M, 0.05)
-    acc2 = accuracy2(net, test_f, test_rf, test_p, test_M, 0.1)
-    acc3 = accuracy2(net, test_f, test_rf, test_p, test_M, 0.15)
+    # acc1, RMSE_test, MAPE_test = accuracy2(net, test_f, test_rf, test_p, test_M, 0.05)
+    # acc2, _, _ = accuracy2(net, test_f, test_rf, test_p, test_M, 0.1)
+    # acc3, _, _ = accuracy2(net, test_f, test_rf, test_p, test_M, 0.15)
+    acc1, RMSE_test, MAPE_test = accuracy2(net, test_f, test_rf, test_M, 0.05)
+    acc2, _, _ = accuracy2(net, test_f, test_rf, test_M, 0.1)
+    acc3, _, _ = accuracy2(net, test_f, test_rf, test_M, 0.15)
     print("Accuracy on test data with 0.05 tolerance = %0.2f%%" % acc1)
     print("Accuracy on test data with 0.1 tolerance = %0.2f%%" % acc2)
     print("Accuracy on test data with 0.15 tolerance = %0.2f%%" % acc3)
-
+    print("MAPE on test data  = %0.3f%%" % MAPE_test)
+    print("RMSE on test data  = %7.4f" % RMSE_test)
+    pdb.set_trace()
     ###################################################################################################################
                     ###################      5. Using the model      #######################
 
-    eval_file = h5py.File(path + 'eval_data.mat', 'r')
+    eval_file = h5py.File(path + 'eval_data_with_noise.mat', 'r')
     eval_var = eval_file.get('eval_data')
     f_var = np.array(eval_var[0:75, :]).T
     rocof_var = np.array(eval_var[75:150, :]).T
-    power_var = np.array(eval_var[150, :])
+    # power_var = np.array(eval_var[150, :])
     # pdb.set_trace()
     X1 = T.Tensor(f_var)
     X2 = T.Tensor(rocof_var)
-    X3 = T.Tensor(power_var).view(-1, 1)
-    y = net(X1, X2, X3)
+    # X3 = T.Tensor(power_var).view(-1, 1)
+    # y = net(X1, X2, X3)
+    y = net(X1, X2)
     # print(y)
     pdb.set_trace()
 
