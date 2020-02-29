@@ -5,4 +5,4 @@ regression_iner_LSTM.py
 regression_iner_MLP_single.py
 /slprj/
 /__pycache__/
-
+/output/
