@@ -54,35 +54,35 @@ def accuracy2(model, train_f, train_rf, train_M, pct_close):
 
 # MLP based model
 class Net(T.nn.Module):
-  def __init__(self, n_inp, n_hid1, n_hid2, n_out):
-    super(Net, self).__init__()
-    self.hid1 = T.nn.Linear(n_inp, n_hid1)
-    self.hid2 = T.nn.Linear(n_hid1, n_hid2)
-    self.oupt = T.nn.Linear(n_hid2, n_out)
+    def __init__(self, n_inp, n_hid1, n_hid2, n_out):
+        super(Net, self).__init__()
+        self.hid1 = T.nn.Linear(n_inp, n_hid1)
+        self.hid2 = T.nn.Linear(n_hid1, n_hid2)
+        self.oupt = T.nn.Linear(n_hid2, n_out)
 
     # initializing the weights and biases
 
-    # T.nn.init.xavier_uniform_(self.hid.weight, gain = 0.05)
-    T.nn.init.xavier_uniform_(self.hid1.weight)
-    T.nn.init.zeros_(self.hid1.bias)
-    T.nn.init.xavier_uniform_(self.hid2.weight)
-    T.nn.init.zeros_(self.hid2.bias)
-    # T.nn.init.xavier_uniform_(self.oupt.weight, gain = 0.05)
-    T.nn.init.xavier_uniform_(self.oupt.weight)
-    T.nn.init.zeros_(self.oupt.bias)
+        # T.nn.init.xavier_uniform_(self.hid.weight, gain = 0.05)
+        T.nn.init.xavier_uniform_(self.hid1.weight)
+        T.nn.init.zeros_(self.hid1.bias)
+        T.nn.init.xavier_uniform_(self.hid2.weight)
+        T.nn.init.zeros_(self.hid2.bias)
+        # T.nn.init.xavier_uniform_(self.oupt.weight, gain = 0.05)
+        T.nn.init.xavier_uniform_(self.oupt.weight)
+        T.nn.init.zeros_(self.oupt.bias)
 
-  def forward(self, X1,X2,X3):
-    # x = T.cat((X1, X2, X3), dim=1) # concatenating the input vectors
-    # pdb.set_trace()
-    x = T.cat((X1, X2), dim=1)
-    z = T.tanh(self.hid1(x))
-    z = T.tanh(self.hid2(z))
-    z = self.oupt(z)  # no activation, aka Identity()
-    return z
+    # def forward(self, X1,X2,X3):
+    def forward(self, X1, X2):
+        # x = T.cat((X1, X2, X3), dim=1) # concatenating the input vectors
+        # pdb.set_trace()
+        x = T.cat((X1, X2), dim=1)
+        z = T.tanh(self.hid1(x))
+        z = T.tanh(self.hid2(z))
+        z = self.oupt(z)  # no activation, aka Identity()
+        return z
 
 # def SSE(out, target):
 #     return (target-out)*(target-out)
-
 
 if __name__ == '__main__':
 
@@ -98,7 +98,7 @@ if __name__ == '__main__':
         loading() returns the array of freq_data and rocof_data
         separate_dataset() returns the separate training and testing dataset
     '''
-    path = ".\\data files\\noisy_data_1000\\manipulated\\"
+    path = ".\\data files\\ramp_input\\manipulated\\"
     file_freq = path + 'freq_norm.mat'
     file_rocof = path + 'rocof_norm.mat'
     freq_data, rocof_data = loading(file_freq, file_rocof)
@@ -112,6 +112,7 @@ if __name__ == '__main__':
         n_out (number of output nodes): calculated the number of output to be provided from the training dataset  
     
     '''
+
     # n_inp = len(train_f[0]) + len(train_rf[0]) + len([train_p[0]])
     n_inp = len(train_f[0]) + len(train_rf[0])
     n_hid1 = int(m.log(n_inp)/m.log(2)) + 3
@@ -129,17 +130,26 @@ if __name__ == '__main__':
     n_items = len(train_f)
     batches_per_epoch = n_items // bat_size
     # max_batches = 1000 * int((5/8) * batches_per_epoch)
-    max_batches = 1000 * batches_per_epoch
+    # max_batches = 1000 * batches_per_epoch
+    max_batches = 57000
     print("Starting training")
     # pdb.set_trace()
     output_full = T.tensor([])      # capturing the full output of the model in total batches
-    # weight_ih = []                  # storing the weights from input to hidden
+    # weight_ih = []                # storing the weights from input to hidden
     weight_ho = []                  # storing the weights from hidden unit to output unit
     output_avg = []                 # storing the average output of the model
     losses = []                     # storing the batch losses
     # avg_loss = np.zeros((800,1))
     # for run in range(20):
     #     losses = []
+
+    min_RMSE = 100
+    min_MAPE = 100
+    min_batch_loss = 100
+    min_R_epoch = 100
+    min_M_epoch = 100
+    min_B_epoch = 100
+
     for b in range(max_batches):
         curr_bat = np.random.choice(n_items, bat_size, replace=False)
         X1 = T.Tensor(train_f[curr_bat])
@@ -170,6 +180,19 @@ if __name__ == '__main__':
             print("  accuracy = %0.2f%%" % acc, end="")
             print("  MAPE = %0.3f%%" % MAPE, end="")
             print("  RMSE = %7.4f" % RMSE)
+
+            # if loss_obj.item() < min_batch_loss:
+            #     min_batch_loss = loss_obj.item()
+            #     min_B_epoch = b
+            #
+            # if RMSE < min_RMSE:
+            #     min_RMSE = RMSE
+            #     min_R_epoch = b
+            #
+            # if MAPE < min_MAPE:
+            #     min_MAPE = MAPE
+            #     min_M_epoch = b
+
         losses.append([loss_obj.item()])
     # avg_loss = np.concatenate((avg_loss,losses), axis = 1)
     print("Training complete \n")
@@ -210,12 +233,12 @@ if __name__ == '__main__':
     ###################################################################################################################
                     ###################      5. Using the model      #######################
 
-    eval_file = h5py.File(path + 'eval_data_with_noise.mat', 'r')
+    eval_file = h5py.File(path + 'eval_data.mat', 'r')
     eval_var = eval_file.get('eval_data')
-    f_var = np.array(eval_var[0:75, :]).T
-    rocof_var = np.array(eval_var[75:150, :]).T
+    f_var = np.array(eval_var[0:100, :]).T
+    rocof_var = np.array(eval_var[100:200, :]).T
     # power_var = np.array(eval_var[150, :])
-    # pdb.set_trace()
+    pdb.set_trace()
     X1 = T.Tensor(f_var)
     X2 = T.Tensor(rocof_var)
     # X3 = T.Tensor(power_var).view(-1, 1)

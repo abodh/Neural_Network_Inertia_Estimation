@@ -10,8 +10,8 @@ def loading(file_freq, file_rocof):
     file_rocof = h5py.File(file_rocof, 'r')
     f_var = file_f.get('f')
     rocof_var = file_rocof.get('rf')
-    f_var = np.array(f_var[0:77, :]).T
-    rocof_var = np.array(rocof_var[0:77, :]).T
+    f_var = np.array(f_var).T
+    rocof_var = np.array(rocof_var).T
     return f_var, rocof_var
 
 def separate_dataset(freq_data, rocof_data):
