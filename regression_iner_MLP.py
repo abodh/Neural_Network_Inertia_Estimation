@@ -14,25 +14,25 @@ title_font = {'fontname': 'Arial', 'size': '16', 'color': 'black', 'weight': 'no
               'verticalalignment': 'bottom'}  # Bottom vertical alignment for more space
 axis_font = {'fontname': 'Arial', 'size': '16'}
 
-
 # def accuracy(model, train_f, train_rf, train_p, train_M, pct_close):
 def accuracy(model, train_f, train_rf, train_M, pct_close):
-  n_items = len(train_M)
-  X1 = T.Tensor(train_f)        # 2-d Tensor
-  X2 = T.Tensor(train_rf)       # 2-d Tensor
-  # X3 = T.Tensor (train_p)
-  # X3 = X3.reshape(-1,1)       # reshaping to 2-d Tensor
-  Y = T.Tensor(train_M)         # actual as 1-d Tensor
-  # oupt = model(X1, X2, X3)    # all predicted as 2-d Tensor
-  oupt = model(X1, X2)
-  pred = oupt.view(n_items)     # all predicted as 1-d
-  RMSE = m.sqrt(T.mean((Y-pred)**2))
-  MAPE = 100 * (T.mean((T.abs(Y-pred)/Y)))
-  # pdb.set_trace()
-  n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
-  result = (n_correct.item() * 100.0 / n_items)  # scalar
-  # pdb.set_trace()
-  return result, RMSE, MAPE
+    n_items = len(train_M)
+    X1 = T.Tensor(train_f)        # 2-d Tensor
+    X2 = T.Tensor(train_rf)       # 2-d Tensor
+    # X3 = T.Tensor (train_p)
+    # X3 = X3.reshape(-1,1)       # reshaping to 2-d Tensor
+    Y = T.Tensor(train_M)         # actual as 1-d Tensor
+    # oupt = model(X1, X2, X3)    # all predicted as 2-d Tensor
+    oupt = model(X1, X2)
+    pred = oupt.view(n_items)     # all predicted as 1-d
+    loss_val = loss_func(oupt, Y)
+    RMSE = m.sqrt(T.mean((Y-pred)**2))
+    MAPE = 100 * (T.mean((T.abs(Y-pred)/Y)))
+    # pdb.set_trace()
+    n_correct = T.sum((T.abs(pred - Y) < T.abs(pct_close * Y)))
+    result = (n_correct.item() * 100.0 / n_items)  # scalar
+    # pdb.set_trace()
+    return result, RMSE, MAPE, loss_val.item()
 
 # def accuracy2(model, train_f, train_rf, train_p, train_M, pct_close):
 def accuracy2(model, train_f, train_rf, train_M, pct_close):
@@ -60,6 +60,7 @@ class Net(T.nn.Module):
         self.hid2 = T.nn.Linear(n_hid1, n_hid2)
         self.oupt = T.nn.Linear(n_hid2, n_out)
 
+
     # initializing the weights and biases
 
         # T.nn.init.xavier_uniform_(self.hid.weight, gain = 0.05)
@@ -74,7 +75,7 @@ class Net(T.nn.Module):
     # def forward(self, X1,X2,X3):
     def forward(self, X1, X2):
         # x = T.cat((X1, X2, X3), dim=1) # concatenating the input vectors
-        # pdb.set_trace()
+        # after removing del_P as input, we only use 2 input vectors
         x = T.cat((X1, X2), dim=1)
         z = T.tanh(self.hid1(x))
         z = T.tanh(self.hid2(z))
@@ -98,7 +99,7 @@ if __name__ == '__main__':
         loading() returns the array of freq_data and rocof_data
         separate_dataset() returns the separate training and testing dataset
     '''
-    path = ".\\data files\\ramp_input\\manipulated\\"
+    path = ".\\data files\\noisy_data_1000\\manipulated\\"
     file_freq = path + 'freq_norm.mat'
     file_rocof = path + 'rocof_norm.mat'
     freq_data, rocof_data = loading(file_freq, file_rocof)
@@ -126,30 +127,24 @@ if __name__ == '__main__':
     net = net.train()
     bat_size = 10
     loss_func = T.nn.MSELoss()
-    optimizer = T.optim.SGD(net.parameters(), lr=0.0005)
+    optimizer = T.optim.SGD(net.parameters(), lr=5e-3)
     n_items = len(train_f)
     batches_per_epoch = n_items // bat_size
-    # max_batches = 1000 * int((5/8) * batches_per_epoch)
     # max_batches = 1000 * batches_per_epoch
     max_batches = 57000
     print("Starting training")
-    # pdb.set_trace()
     output_full = T.tensor([])      # capturing the full output of the model in total batches
     # weight_ih = []                # storing the weights from input to hidden
     weight_ho = []                  # storing the weights from hidden unit to output unit
     output_avg = []                 # storing the average output of the model
     losses = []                     # storing the batch losses
-    # avg_loss = np.zeros((800,1))
-    # for run in range(20):
-    #     losses = []
-
+    val_losses = []
     min_RMSE = 100
     min_MAPE = 100
     min_batch_loss = 100
     min_R_epoch = 100
     min_M_epoch = 100
     min_B_epoch = 100
-
     for b in range(max_batches):
         curr_bat = np.random.choice(n_items, bat_size, replace=False)
         X1 = T.Tensor(train_f[curr_bat])
@@ -163,7 +158,7 @@ if __name__ == '__main__':
         # oupt_numpy = oupt.data.cpu().numpy()
         output_full = T.cat((output_full, oupt), 0)
         # output_avg.append(np.mean(oupt_numpy))
-        loss_obj = loss_func(oupt, Y)
+        loss_obj = T.sqrt(loss_func(oupt, Y))
         loss_obj.backward()
         optimizer.step()
         # weight_ih.append(np.reshape(net.hid1.weight.data.clone().cpu().numpy(), (1, n_inp * n_hid1)))
@@ -172,30 +167,63 @@ if __name__ == '__main__':
         if b % 1000 == 0:
             # print(output.size(), end="")
             print("batch = %6d" % b, end="")
-            print("  batch loss = %7.4f" % loss_obj.item(), end="")
+            print("  train loss = %7.4f" % loss_obj.item(), end="")
             net = net.eval()
-            # acc, RMSE, MAPE = accuracy(net, train_f, train_rf, train_p, train_M, 0.1)
-            acc, RMSE, MAPE = accuracy(net, train_f, train_rf, train_M, 0.1)
+            acc, RMSE, MAPE, loss = accuracy(net, train_f, train_rf, train_M, 0.1)
+            # val_losses.append([loss])
             net = net.train()
+            print("  val loss = %7.4f" % loss, end="")
             print("  accuracy = %0.2f%%" % acc, end="")
             print("  MAPE = %0.3f%%" % MAPE, end="")
             print("  RMSE = %7.4f" % RMSE)
 
-            # if loss_obj.item() < min_batch_loss:
-            #     min_batch_loss = loss_obj.item()
-            #     min_B_epoch = b
-            #
-            # if RMSE < min_RMSE:
-            #     min_RMSE = RMSE
-            #     min_R_epoch = b
-            #
-            # if MAPE < min_MAPE:
-            #     min_MAPE = MAPE
-            #     min_M_epoch = b
+            if loss_obj.item() < min_batch_loss:
+                min_batch_loss = loss_obj.item()
+                min_B_epoch = b
 
-        losses.append([loss_obj.item()])
+            if RMSE < min_RMSE:
+                min_RMSE = RMSE
+                min_R_epoch = b
+
+            if MAPE < min_MAPE:
+                min_MAPE = MAPE
+                min_M_epoch = b
+
+            losses.append([loss_obj.item()])
+            val_losses.append([RMSE])
     # avg_loss = np.concatenate((avg_loss,losses), axis = 1)
     print("Training complete \n")
+
+    losses = np.squeeze(losses)
+    val_losses = np.squeeze(val_losses)
+    plt.figure()
+
+    plt.plot(losses)
+    t_x = np.arange(len(losses))
+    poly = np.polyfit(t_x, losses, 6)
+    losses = np.poly1d(poly)(t_x)
+    plt.plot(t_x, losses)
+
+    plt.plot(val_losses)
+    v_x = np.arange(len(val_losses))
+    poly = np.polyfit(v_x, val_losses, 6)
+    val_losses = np.poly1d(poly)(v_x)
+    plt.plot(v_x, val_losses)
+
+    plt.ylabel("Mean Squared Error", **axis_font)
+    plt.xlabel("Number of batches in entire epochs", **axis_font)
+    # plt.title("Batch training loss vs number of batch", **title_font)
+    plt.grid(linestyle='-', linewidth=0.5)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.rcParams['agg.path.chunksize'] = 1000
+    # plt.savefig('./output/output_feb19/batch_loss.png', dpi=600, bbox_inches='tight')
+    plt.show()
+    pdb.set_trace()
+
+    print(" min batch loss = {} at {} batch \n".format(min_batch_loss, min_B_epoch))
+    print(" min RMSE = {} at {} batch \n".format(min_RMSE, min_R_epoch))
+    print(" min MAPE = {} at {} batch \n".format(min_MAPE, min_M_epoch))
 
     # avg_loss = np.mean(avg_loss[:,1:], axis = 1)
     #
@@ -233,10 +261,10 @@ if __name__ == '__main__':
     ###################################################################################################################
                     ###################      5. Using the model      #######################
 
-    eval_file = h5py.File(path + 'eval_data.mat', 'r')
+    eval_file = h5py.File(path + 'eval_data_with_noise.mat', 'r')
     eval_var = eval_file.get('eval_data')
-    f_var = np.array(eval_var[0:100, :]).T
-    rocof_var = np.array(eval_var[100:200, :]).T
+    f_var = np.array(eval_var[0:75, :]).T
+    rocof_var = np.array(eval_var[75:150, :]).T
     # power_var = np.array(eval_var[150, :])
     pdb.set_trace()
     X1 = T.Tensor(f_var)
@@ -351,7 +379,8 @@ if __name__ == '__main__':
     plt.yticks(fontsize = 12)
     plt.rcParams['agg.path.chunksize'] = 1000
     plt.savefig('./output/output_feb19/batch_loss.png', dpi = 600, bbox_inches='tight')
-    plt.show()
+
+
     #
     #
     #
