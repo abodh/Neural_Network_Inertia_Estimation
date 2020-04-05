@@ -9,7 +9,7 @@ regression_iner_MLP_single.py
 /with damping test/
 
 !/data files/
-/data files/**
+/data_files/*
 !/data files/excitation_pulse/
 
 !/main code files/
