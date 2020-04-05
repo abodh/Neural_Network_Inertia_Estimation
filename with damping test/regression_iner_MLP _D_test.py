@@ -28,7 +28,6 @@ def accuracy(model, test_f_rf, test_M_D, pct_close):
         oupt = model(X)
         # pdb.set_trace()
         pred = oupt.view(n_items)     # all predicted as 1-d
-
         # loss_val_M = T.sqrt(loss_func(oupt[:,0], Y[:,0]))
         # loss_val_D = T.sqrt(loss_func(oupt[:, 0], Y[:, 0]))
         # loss_val = loss_val_M + loss_val_D
@@ -53,8 +52,8 @@ def accuracy(model, test_f_rf, test_M_D, pct_close):
         # if result > 100:
         #     pdb.set_trace()
 
-        if b == 69000:
-            pdb.set_trace()
+        # if b == 69000:
+        #     pdb.set_trace()
         # return result_M, result, RMSE
         return result, RMSE
 
@@ -125,7 +124,7 @@ if __name__ == '__main__':
         loading() returns the array of freq_data and rocof_data
         separate_dataset() returns the separate training and testing dataset
     '''
-    path = ".\\data files\\excitation_10\\manipulated\\"
+    path = "C:\\Users\\abodh\\Box Sync\\Box Sync\\Spring 2020\\inertia project\\Neural-Network-Regression\\data files\\excitation_10\\manipulated\\"
     file_freq = path + 'freq_norm.mat'
     file_rocof = path + 'rocof_norm.mat'
     freq_data, rocof_data = loading(file_freq, file_rocof)
@@ -165,6 +164,9 @@ if __name__ == '__main__':
     output_avg = []                 # storing the average output of the model
     train_losses = []               # storing the training losses
     val_losses = []                 # storing the validation losses
+
+    Y_acc = []
+    oupt_acc = []
 
     min_RMSE = 100
     min_MAPE = 100
