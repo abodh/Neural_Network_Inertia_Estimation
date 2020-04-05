@@ -7,5 +7,5 @@ regression_iner_MLP_single.py
 /__pycache__/
 /output/
 /with damping test/
-/data files/other data/
-/main code files/__pycache__/
+!/data files/other data/
+!/main code files/__pycache__/
