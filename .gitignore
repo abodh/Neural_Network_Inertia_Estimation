@@ -8,7 +8,7 @@ regression_iner_MLP_single.py
 /output/
 /with damping test/
 
-/**/data files/other data/
+/**/data files/other data/**
 
 !/main code files/
 /main code files/**
