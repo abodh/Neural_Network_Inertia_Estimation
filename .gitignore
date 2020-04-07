@@ -10,7 +10,4 @@ regression_iner_MLP_single.py
 
 /**/data files/other data/**
 
-!/main code files/
-/main code files/**
-!/main code files/data_loading_D_test.py
-!/main code files/regression_iner_MLP _D_test.py
+/**/main code files/__pycache__/
