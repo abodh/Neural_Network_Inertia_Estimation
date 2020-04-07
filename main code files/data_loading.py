@@ -3,6 +3,25 @@ import numpy as np
 from sklearn.preprocessing import normalize, MinMaxScaler
 import matplotlib.pyplot as plt
 import pdb
+import torch
+from torch.utils.data import Dataset
+
+class freq_data(Dataset):
+    # Constructor
+    def __init__(self, path):
+        file_freq = path + 'freq_norm.mat'
+        file_rocof = path + 'rocof_norm.mat'
+        freq_data, rocof_data = loading(file_freq, file_rocof)
+        self.x, self.y = separate_dataset(freq_data, rocof_data)
+        self.len = self.x.shape[0]
+
+    # Getter
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]
+
+    # Return the length
+    def __len__(self):
+        return self.len
 
 def loading(file_freq, file_rocof):
     # loading total data
@@ -38,6 +57,7 @@ def separate_dataset(freq_data, rocof_data):
     x = total_dataset[:,:-1]
     y = total_dataset[:,-1]
     return x, y
+
 if __name__ == '__main__':
 
     # testing if the above functions work properly

@@ -1,159 +1,53 @@
 '''
 Author: Abodh Poudyal
 MSEE, South Dakota State University
-Last updated: April 2, 2020
+Last updated: April 7, 2020
 '''
 
 import numpy as np
-import os
-import h5py
 import matplotlib.pyplot as plt
-import torch as T
+import torch
 import pdb
 
-from data_loading_D_test import loading, separate_dataset
-from torch.utils.data import Dataset, DataLoader
+from data_loading import loading, separate_dataset, freq_data
+from model import Net
+from utils import accuracy, testing
+from torch.utils.data import DataLoader
 
-class freq_data(Dataset):
-    # Constructor
-    def __init__(self, path):
-        file_freq = path + 'freq_norm.mat'
-        file_rocof = path + 'rocof_norm.mat'
-        freq_data, rocof_data = loading(file_freq, file_rocof)
-        self.x, self.y = separate_dataset(freq_data, rocof_data)
-        self.len = self.x.shape[0]
-
-    # Getter
-    def __getitem__(self, idx):
-        return self.x[idx], self.y[idx]
-
-    # Return the length
-    def __len__(self):
-        return self.len
-
-def accuracy(model, validation_loader, pct_close, eval = False):
-
-    with T.no_grad():
-        val_correct = []
-        val_loss_func = []
-        n_items = 0
-        for idx, (test_f_rf,test_M_D) in enumerate(validation_loader):
-            n_items += len(test_M_D)
-            X = test_f_rf.float()
-            Y = test_M_D.float().view(-1,1)    # reshaping to 2-d Tensor
-            oupt = model(X)                    # all predicted as 2-d Tensor
-            loss = criterion(oupt,Y)
-            n_correct = T.sum((T.abs(oupt - Y) < T.abs(pct_close * Y)))
-            val_correct.append(n_correct)
-            val_loss_func.append(loss)
-
-        loss_func = sum(val_loss_func)/ len(val_loss_func)
-        result = (sum(val_correct) * 100.0 / n_items)
-        RMSE_loss = T.sqrt(loss_func)
-
-        # observing the result when set to eval mode
-        if (eval):
-            print('Predicted test output for random batch = {}, actual output = {} with accuracy of {:.2f}% '
-                  'and RMSE = {:.6f}'.format(oupt, Y, result, RMSE_loss))
-        return result, RMSE_loss, loss_func
-
-# MLP based model
-class Net(T.nn.Module):
-    def __init__(self, n_inp, n_hid1, n_hid2, n_out, dropout_rate, weight_ini, dropout_decision=False):
-        super(Net, self).__init__()
-        self.hid1 = T.nn.Linear(n_inp, n_hid1)
-        self.hid2 = T.nn.Linear(n_hid1, n_hid2)
-        self.oupt = T.nn.Linear(n_hid2, n_out)
-        self.dropout_decision = dropout_decision
-        self.dropout = T.nn.Dropout(dropout_rate)
-
-    # initializing the weights and biases
-        T.nn.init.xavier_uniform_(self.hid1.weight, gain = weight_ini)
-        T.nn.init.zeros_(self.hid1.bias)
-        T.nn.init.xavier_uniform_(self.hid2.weight, gain = weight_ini)
-        T.nn.init.zeros_(self.hid2.bias)
-        T.nn.init.xavier_uniform_(self.oupt.weight, gain = weight_ini)
-        T.nn.init.zeros_(self.oupt.bias)
-
-    def forward(self, X):
-        z = T.tanh(self.hid1(X))
-        if (dropout_decision):
-            z = self.dropout(z)
-        z = T.tanh(self.hid2(z))
-        z = self.oupt(z)  # no activation, aka Identity()
-        return z
-
-def testing(model_path,
-            data_path,
-            counter,
-            net,
-            load_model = True):
-
-    net = net.eval()
-    with T.no_grad():
-        eval_file = h5py.File(data_path + 'eval_data.mat', 'r')
-        eval_var = eval_file.get('eval_data')
-        X_eval = T.Tensor(np.array(eval_var[0:-2, :]).T)            # a 2-d tensor
-        Y_eval = T.Tensor(np.array(eval_var[-1, :]).T).view(-1, 1)  # converting to a 2-d tensor
-
-        if (load_model):
-            test_loss = []  # accumulating the losses on different models
-            i = 0
-            for filename in os.listdir(model_path):
-                if filename.endswith(".pth"):
-                    net.load_state_dict(T.load(model_path + '/' + filename))
-                    net.eval()
-                    y = net(X_eval)
-                    loss_test = T.sqrt(criterion(y, Y_eval))
-                    test_loss.append(loss_test.item())
-                    print ('test result at epoch {} is y = {}'.format(counter[i], y.view(len(y))))
-                    i =  i + 1
-                    continue
-                else:
-                    continue
-            min_val_epoch = counter[np.argmin(test_loss)]
-            test_RMSE = min(test_loss)
-            print('the best model is at epoch {} which gives a loss of {:.6f} \n'
-                  .format(min_val_epoch, test_RMSE))
-        else:
-            y = net(X_eval)
-            test_loss = criterion(y, Y_eval)
-            test_RMSE = T.sqrt(test_loss)
-            print ('Actual output = {} and Predicted test output = {} with RMSE = {:.6f}'.format(Y_eval, y, test_RMSE))
-    return test_loss, test_RMSE
 
 # resets weights for different learning rates
 def weight_init(m):
-    if isinstance(m, T.nn.Linear):
+    if isinstance(m, torch.nn.Linear):
         m.reset_parameters()
 
 if __name__ == '__main__':
 
     # manual seed to reproduce same results every time
-    T.manual_seed(1);  np.random.seed(1)
+    torch.manual_seed(1);  np.random.seed(1)
 
     # setting the parameters
-    epoch = 489                # number of epochs -> in 1 epoch all of the training data are used
+    epoch = 500                 # number of epochs -> in 1 epoch all of the training data are used
     mini_batch = 10             # number of mini-batches -> subset of the training data
     learning_rate = 1e-3        # SGD learning rate -> considers SGD as optimizer
-    momentum = 0              # SGD momentum term -> considers SGD as optimizer
+    momentum = 0                # SGD momentum term -> considers SGD as optimizer
     n_hidden1 = 10              # number of hidden units in first hidden layer
     n_hidden2 = 10              # number of hidden units in second hidden layer
     n_output = 1                # number of output units
     frac_train = 0.8            # fraction of data to be used as training set
     dropout_rate = 0.5          # dropout rate -> remember to set dropout_decision as True
     weight_initializer = 0.05   # weight initializer -> initializes between [-x,x)
-    dropout_decision = False     # do you want to dropout or not?
+    dropout_decision = False    # do you want to dropout or not?
 
     tolerance = 0.1             # tolerance for the estimated value
                                 # -> 0.1 means the output around 10% is considers to be correct
 
     save_model = False          # set True when you want to save models for specific conditions
     load_model = False          # set True when you want to load the saved models for specific conditions
-    model_path = './models'     # path to the saved model
+    model_path = './Neural-Network-Regression/output/saved_models'     # path to the saved model
 
     data_path = "C:\\Users\\abodh\\Box Sync\\Box Sync\\Spring 2020\\inertia project\\" \
-                "Neural-Network-Regression\\data files\\varying both_M_P_posneg_pulse\\manipulated\\"
+                "Neural-Network-Regression\\data files\\other data\\varying both_M_P_posneg_pulse" \
+                "\\manipulated\\"
 
     ###################################################################################################################
                     ###################      2. creating the model      #######################
@@ -166,7 +60,7 @@ if __name__ == '__main__':
     max_batches = epoch * int(train_num / mini_batch)
 
     # splitting into training and validation dataset
-    training, validation = T.utils.data.random_split(dataset,(train_num,test_num))
+    training, validation = torch.utils.data.random_split(dataset,(train_num,test_num))
 
     # load separate training and validating dataset -> repeat !!! dataset and dataloader are awesome in pytorch)
     train_loader = DataLoader(training, batch_size = mini_batch, shuffle = True)
@@ -185,8 +79,8 @@ if __name__ == '__main__':
                         #############      3. Training the model      #######################
 
     net = net.train()                   # set the network to training mode
-    criterion = T.nn.MSELoss()          # set the loss criterion
-    optimizer = T.optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum)
+    criterion = torch.nn.MSELoss()          # set the loss criterion
+    optimizer = torch.optim.SGD(net.parameters(), lr = learning_rate, momentum = momentum)
 
     print("Starting training")
 
@@ -205,10 +99,10 @@ if __name__ == '__main__':
     # lr_train_loss = []
     # lr_val_loss = []
     # for iter_learn, l_rate in enumerate(learning_rates):
-    #     T.manual_seed(1); np.random.seed(1)
+    #     torch.manual_seed(1); np.random.seed(1)
     #     # net = net.train()
     #     net.apply(weight_init)
-    #     optimizer = T.optim.SGD(net.parameters(), lr=l_rate, momentum=0.5)
+    #     optimizer = torch.optim.SGD(net.parameters(), lr=l_rate, momentum=0.5)
     #     weight_ho = []
 
     for ep in range(epoch):
@@ -235,7 +129,7 @@ if __name__ == '__main__':
 
         # testing validation set after training all the batches
         net = net.eval()                            # set the network to evaluation mode
-        val_acc, val_RMSE, vali_loss = accuracy(net, validation_loader, tolerance, eval=False)
+        val_acc, val_RMSE, vali_loss = accuracy(net, validation_loader, tolerance, criterion, eval=False)
         val_losses.append([vali_loss.item()])       # validation loss on entire samples for each epoch
 
         # find the epoch that gives minimum validation loss
@@ -249,7 +143,7 @@ if __name__ == '__main__':
         # if we are willing to test the models on testing data that gives validation accuracy > 90%
         if (save_model) and val_RMSE <= 0.5:
                 counter.append((ep))
-                T.save(net.state_dict(),'./models/model{}.pth'.format(ep))
+                torch.save(net.state_dict(),'./models/model{}.pth'.format(ep))
 
         print("epoch = %d" % ep, end="")
         print("  train loss = %7.4f" % train_loss_avg, end="")
@@ -291,14 +185,14 @@ if __name__ == '__main__':
                     ###################      4. Evaluating the model (validation) #######################
 
     net = net.eval()  # set eval mode
-    acc_val, val_RMSE, _ = accuracy(net, validation_loader, tolerance, eval=True)
+    acc_val, val_RMSE, _ = accuracy(net, validation_loader, tolerance, criterion, eval=True)
     print('validation accuracy with {} tolerance = {:.2f} and RMSE = {:.6f}\n'
           .format(tolerance, acc_val, val_RMSE))
 
     ###################################################################################################################
                     ###################      5. Using the model (testing)     #######################
 
-    test_loss, test_RMSE = testing(model_path, data_path, counter, net, load_model)
+    test_loss, test_RMSE = testing(model_path, data_path, counter, net, criterion, load_model)
 
     ###################################################################################################################
                         ###################      6. Plotting the results      #######################
@@ -343,7 +237,7 @@ if __name__ == '__main__':
     plt.yticks(fontsize=12)
     plt.rcParams['agg.path.chunksize'] = 1000
     plt.legend()
-    plt.savefig('./batch_loss.png', dpi=600, bbox_inches='tight')
+    # plt.savefig('./batch_loss.png', dpi=600, bbox_inches='tight')
     plt.show()
     pdb.set_trace()
 
@@ -399,6 +293,6 @@ if __name__ == '__main__':
     plt.xlabel("Number of batches in entire epochs", **axis_font)
     plt.xlim(0, max_batches)
     plt.rcParams['agg.path.chunksize'] = 10000
-    plt.savefig('./who', dpi=600, bbox_inches='tight')
+    # plt.savefig('./who', dpi=600, bbox_inches='tight')
     plt.show()
     plt.close()
