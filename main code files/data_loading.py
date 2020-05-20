@@ -1,6 +1,6 @@
 import h5py
 import numpy as np
-from sklearn.preprocessing import normalize, MinMaxScaler
+# from sklearn.preprocessing import normalize, MinMaxScaler
 import matplotlib.pyplot as plt
 import pdb
 import torch
@@ -12,7 +12,7 @@ class freq_data(Dataset):
         file_freq = path + 'freq_norm.mat'
         file_rocof = path + 'rocof_norm.mat'
         freq_data, rocof_data = loading(file_freq, file_rocof)
-        self.x, self.y = separate_dataset(freq_data, rocof_data)
+        self.x, self.y, _, _ = separate_dataset(freq_data, rocof_data)
         self.len = self.x.shape[0]
 
     # Getter
@@ -43,8 +43,10 @@ def separate_dataset(freq_data, rocof_data):
     Note: the data have been normalized already in MATLAB
 
     '''
-    total_dataset = np.hstack((freq_data[:,0:-2],rocof_data[:,0:-2],freq_data[:,-1:]))
-    # pdb.set_trace()
+    # loads = np.genfromtxt('pulses.csv', delimiter=',')
+    # loads = loads.transpose()
+
+    total_dataset = np.hstack((freq_data[:,0:201],rocof_data[:,0:201], freq_data[:,-1:]))
     # total_dataset = np.random.permutation(total_dataset)
     # train_num = int(0.8 * len(total_dataset))  # number of data to be trained
     # pdb.set_trace()
@@ -56,21 +58,19 @@ def separate_dataset(freq_data, rocof_data):
     # return train_f_rf, train_M_D, test_f_rf, test_M_D
     x = total_dataset[:,:-1]
     y = total_dataset[:,-1]
-    return x, y
+    return x, y, freq_data[:,0:201],rocof_data[:,0:201]
 
 if __name__ == '__main__':
-
     # testing if the above functions work properly
 
-    path = "C:\\Users\\abodh\\Box Sync\\Box Sync\\Spring 2020\\inertia project\\" \
-                "Neural-Network-Regression\\data files\\varying both_M_P_posneg_pulse\\manipulated\\"
+    path = "..\\..\\matlab files\\0.2Hz\\manipulated\\"
     file_freq = path + 'freq_norm.mat'
     file_rocof = path + 'rocof_norm.mat'
     freq_data, rocof_data = loading(file_freq, file_rocof)
-    train_f, test_f = separate_dataset(freq_data, rocof_data)
-    # plt.subplot(221)
-    plt.plot(train_f[0:3])
-    # plt.subplot(222)
-    # plt.plot(test_f[55])
+    _, _, f, rf = separate_dataset(freq_data, rocof_data)
+    for i in range(f.shape[0]):
+        plt.subplot(211)
+        plt.plot(f[i,:])
+        plt.subplot(212)
+        plt.plot(rf[i,:])
     plt.show()
-    pdb.set_trace()
