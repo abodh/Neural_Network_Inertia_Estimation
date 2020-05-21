@@ -1,7 +1,7 @@
 '''
 Author: Abodh Poudyal (@abodh_ltd)
 MSEE, South Dakota State University
-Last updated: April 21, 2020
+Last updated: May 21, 2020
 '''
 
 import numpy as np
@@ -15,7 +15,7 @@ import os
 import time
 
 from data_loading import loading, separate_dataset, freq_data
-from model import Net
+from model import Net, Simple1DCNN
 from utils import accuracy, testing
 from torch.utils.data import DataLoader
 
@@ -30,29 +30,30 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # setting the parameters
-    epoch = 1000  # number of epochs -> in 1 epoch all of the training data are used
-    mini_batch = 30  # number of mini-batches -> subset of the training data
-    learning_rate = 1e-3  # SGD learning rate -> considers SGD as optimizer
-    momentum = 0.5  # SGD momentum term -> considers SGD as optimizer
-    n_hidden1 = 25  # number of hidden units in first hidden layer
-    n_hidden2 = 25  # number of hidden units in second hidden layer
-    n_output = 1  # number of output units
-    frac_train = 0.80  # fraction of data to be used as training set
-    dropout_rate = 0.2  # dropout rate -> remember to set dropout_decision as True
-    weight_initializer = 0.05  # weight initializer -> initializes between [-x,x)
-    dropout_decision = False  # do you want to dropout or not?
-    w_lambda = 0.0005
+    network = 'CNN'         # you can choose to train on MLP or CNN
+    epoch = 200             # number of epochs -> in 1 epoch all of the training data are used
+    mini_batch = 30         # number of mini-batches -> subset of the training data
+    learning_rate = 1e-3    # SGD learning rate -> considers SGD as optimizer
+    momentum = 0.5          # SGD momentum term -> considers SGD as optimizer
+    n_hidden1 = 25          # number of hidden units in first hidden layer (for MLP)
+    n_hidden2 = 25          # number of hidden units in second hidden layer (for MLP)
+    n_output = 1            # number of output units
+    frac_train = 0.80       # fraction of data to be used as training set
+    dropout_rate = 0.2      # dropout rate -> remember to set dropout_decision as True
+    weight_initializer = 0.05   # weight initializer -> initializes between [-x,x)
+    dropout_decision = False    # do you want to dropout or not?
+    w_lambda = 0.0005           # weight decay parameter
 
-    tolerance = 0.1  # tolerance for the estimated value
+    tolerance = 0.1             # tolerance for the estimated value
     # -> 0.1 means the output around 10% is considers to be correct
 
-    save_figs = True  # set True if you want to save figs and data
-    save_model = True  # set True when you want to save models for specific conditions
-    load_model = True  # set True when you want to load the saved models for specific conditions
+    save_figs = False       # set True if you want to save figs and data
+    save_model = False      # set True when you want to save models for specific conditions
+    load_model = False      # set True when you want to load the saved models for specific conditions
 
     # data_path = "..\\..\\Neural-Network-Regression\\data files\\other data\\varying both_M_P_posneg_pulse" \
     #             "\\manipulated\\"
-    data_path = "..\\..\\matlab files\\area1_non_IID\\manipulated\\"
+    data_path = "..\\..\\matlab files\\0.2Hz\\manipulated\\"  # set the path of the data file
 
     # loading the data
     dataset = freq_data(data_path)  # loads data from the freq_data class (dataset class -> awesome in pytorch)
@@ -62,6 +63,7 @@ if __name__ == '__main__':
     test_num = len(dataset) - train_num  # number of data for validating
     max_batches = epoch * int(train_num / mini_batch)
 
+    '''' brute force search '''
     # hidden = [10, 25, 50, 60]
     # lr = [1e-4, 1e-3, 1e-2, 1e-1]
     # decay = [1e-4, 5e-4, 1e-3, 1e-2]
@@ -73,13 +75,14 @@ if __name__ == '__main__':
     #     for learning_rate in lr:
     #         for w_lambda in decay:
     #             for mini_batch in batch:
+
     # creating a unique folder to save the output files
     str(date.today().strftime("%d/%m/%Y"))
     output_path = "../../Neural-Network-Regression/log/testing_models/" + str(date.today().strftime("%b-%d-%Y")) + \
                   str(datetime.now().strftime("-%H.%M.%S-")) \
                   + "h{}_lr{}_lam{}_bat_{}".format(n_hidden1, learning_rate, w_lambda, mini_batch)
     try:
-        os.mkdir(output_path)
+        os.mkdir(output_path) # creates a directory based on current date and time
     except OSError:
         print("Creation of the directory %s failed" % output_path)
 
@@ -103,23 +106,30 @@ if __name__ == '__main__':
     train_loader = DataLoader(training, batch_size=mini_batch, shuffle=True)
     validation_loader = DataLoader(validation, batch_size=mini_batch, shuffle=False)
 
+    # these initializations are for MLP network
     n_inp = len(training[0][0])
     n_hid1 = n_hidden1
     n_hid2 = n_hidden2
     n_out = n_output
 
     # call your neural network model right here
-    net = Net(n_inp, n_hid1, n_hid2, n_out, dropout_rate, weight_initializer, dropout_decision).to(device)
-    print(net)
+
+    if (network == 'CNN'):
+        net = Simple1DCNN().double().to(device)
+    else:
+        net = Net(n_inp, n_hid1, n_hid2, n_out, dropout_rate, weight_initializer, dropout_decision).to(device)
+
+    print(net) # prints the architecture of your current NN model
+
     ##################################################################################################################
     #############      3. Training the model      #######################
 
     net = net.train()  # set the network to training mode
-    net.apply(weight_init)
+    # net.apply(weight_init)
     criterion = torch.nn.MSELoss()  # set the loss criterion
     optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum, weight_decay=w_lambda)
     print("Starting training \n")
-    print("h{}_lr{}_lam{}_bat_{}".format(n_hidden1, learning_rate, w_lambda, mini_batch))
+    # print("h{}_lr{}_lam{}_bat_{}".format(n_hidden1, learning_rate, w_lambda, mini_batch))
     print("####################################################################### \n")
 
     weight_ih = []  # storing the weights from input to hidden
@@ -154,8 +164,12 @@ if __name__ == '__main__':
         for batch_idx, (data, target) in enumerate(train_loader):
             t_item += len(target)
             data, target = data.to(device), target.to(device)  # passing the variables to gpu
-            X = data.float()  # pytorch input should be float -> awkward right?
-            Y = target.float().view(-1, 1)  # converting into 2-d tensor
+            if (network == 'CNN'):
+                X = data.double().unsqueeze(1)  # pytorch input should be float -> awkward right?
+                Y = target.double().view(-1, 1)  # converting into 2-d tensor
+            else:
+                X = data.float()  # pytorch input should be float -> awkward right?
+                Y = target.float().view(-1, 1)  # converting into 2-d tensor
             optimizer.zero_grad()  # making the gradient zero before optimizing
             oupt = net(X)  # neural network output
             loss_obj = criterion(oupt, Y)  # loss calculation
@@ -171,7 +185,10 @@ if __name__ == '__main__':
             correct = torch.sum((torch.abs(oupt - Y) < torch.abs(0.1 * Y)))
             t_correct.append(correct)
 
-        weight_ho.append(np.reshape(net.oupt.weight.data.clone().cpu().numpy(), (1, n_hid2 * n_out)))
+        if (network == 'CNN'):
+            weight_ho.append((net.fc3.weight.data.clone().cpu().numpy()))
+        else:
+            weight_ho.append(np.reshape(net.oupt.weight.data.clone().cpu().numpy(), (1, n_hid2 * n_out)))
 
         t_result = ((sum(t_correct)).item() / t_item)
         t_acc.append(t_result)
@@ -182,7 +199,7 @@ if __name__ == '__main__':
 
         # testing validation set after training all the batches
         net = net.eval()  # set the network to evaluation mode
-        val_acc, val_RMSE, vali_loss = accuracy(net, validation_loader, tolerance, criterion, device, eval=False)
+        val_acc, val_RMSE, vali_loss = accuracy(net, validation_loader, tolerance, criterion, device, network, eval=False)
         val_losses.append([vali_loss.item()])  # validation loss on entire samples for each epoch
         v_acc.append(val_acc.item() / 100)
 
@@ -196,7 +213,7 @@ if __name__ == '__main__':
 
         # if we are willing to test the models on testing data that gives validation accuracy > 90%
         # if (save_model) and val_RMSE <= 0.65:
-        if (save_model) and val_RMSE<=0.3:
+        if (save_model) and val_RMSE<=0.25:
             counter.append((ep))
             torch.save(net.state_dict(), output_path + '/models/model{}.pth'.format(ep))
 
@@ -253,7 +270,7 @@ if __name__ == '__main__':
     ###################      4. Evaluating the model (validation) #######################
 
     net = net.eval()  # set eval mode
-    acc_val, val_RMSE, _ = accuracy(net, validation_loader, tolerance, criterion, device, eval=True)
+    acc_val, val_RMSE, _ = accuracy(net, validation_loader, tolerance, criterion, device, network, eval=True)
     print('validation accuracy with {} tolerance = {:.2f} and RMSE = {:.6f}\n'
           .format(tolerance, acc_val, val_RMSE))
 

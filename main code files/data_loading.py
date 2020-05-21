@@ -24,6 +24,15 @@ class freq_data(Dataset):
         return self.len
 
 def loading(file_freq, file_rocof):
+    '''
+    loading the data from the mat file
+
+    :param file_freq: mat file that contains the frequency data
+    :param file_rocof: mat file that contains the rocof data
+    :return: array of frequency and rocof
+
+    '''
+
     # loading total data
     file_f = h5py.File(file_freq, 'r')
     file_rocof = h5py.File(file_rocof, 'r')
@@ -46,7 +55,9 @@ def separate_dataset(freq_data, rocof_data):
     # loads = np.genfromtxt('pulses.csv', delimiter=',')
     # loads = loads.transpose()
 
-    total_dataset = np.hstack((freq_data[:,0:201],rocof_data[:,0:201], freq_data[:,-1:]))
+    total_dataset = np.hstack((freq_data[:,0:201],rocof_data[:,0:201], freq_data[:,-1:])) # here 201 is used just to
+    # extract first 201 datapoints
+
     # total_dataset = np.random.permutation(total_dataset)
     # train_num = int(0.8 * len(total_dataset))  # number of data to be trained
     # pdb.set_trace()
@@ -56,8 +67,10 @@ def separate_dataset(freq_data, rocof_data):
     # test_M_D = total_dataset[train_num:len(total_dataset), -1]
     # pdb.set_trace()
     # return train_f_rf, train_M_D, test_f_rf, test_M_D
-    x = total_dataset[:,:-1]
-    y = total_dataset[:,-1]
+
+    x = total_dataset[:,:-1] # x contains freq and rocof datapoints
+    y = total_dataset[:,-1] # y contains inertia constant
+
     return x, y, freq_data[:,0:201],rocof_data[:,0:201]
 
 if __name__ == '__main__':

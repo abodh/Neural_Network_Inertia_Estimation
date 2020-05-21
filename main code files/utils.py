@@ -5,7 +5,7 @@ import numpy as np
 from model import Net
 import pdb
 
-def accuracy(model, validation_loader, pct_close, criterion, device, eval = False):
+def accuracy(model, validation_loader, pct_close, criterion, device, network, eval = False):
     with torch.no_grad():
         val_correct = []
         val_loss_func = []
@@ -13,8 +13,12 @@ def accuracy(model, validation_loader, pct_close, criterion, device, eval = Fals
         for idx, (test_f_rf,test_M_D) in enumerate(validation_loader):
             n_items += len(test_M_D)
             test_f_rf, test_M_D = test_f_rf.to(device), test_M_D.to(device)
-            X = test_f_rf.float()
-            Y = test_M_D.float().view(-1,1)    # reshaping to 2-d Tensor
+            if (network == 'CNN'):
+                X = test_f_rf.double().unsqueeze(1)  # pytorch input should be float -> awkward right?
+                Y = test_M_D.double().view(-1, 1)  # converting into 2-d tensor
+            else:
+                X = test_f_rf.float()
+                Y = test_M_D.float().view(-1,1)    # reshaping to 2-d Tensor
             oupt = model(X)                    # all predicted as 2-d Tensor
             loss = criterion(oupt,Y)
             n_correct = torch.sum((torch.abs(oupt - Y) < torch.abs(pct_close * Y)))
@@ -44,8 +48,12 @@ def testing(model_path,
     with torch.no_grad():
         eval_file = h5py.File(data_path + 'eval_data.mat', 'r')
         eval_var = eval_file.get('eval_data')
-        X_eval = torch.Tensor(np.array(eval_var[0:-2, :]).T)            # a 2-d tensor
-        Y_eval = torch.Tensor(np.array(eval_var[-1, :]).T).view(-1, 1)  # converting to a 2-d tensor
+        if (network == 'CNN'):
+            X_eval = torch.Tensor(np.array(eval_var[0:-2, :]).T).double().unsqueeze(1)  # a 2-d tensor
+            Y_eval = torch.Tensor(np.array(eval_var[-1, :]).T).double().view(-1, 1)  # converting to a 2-d tensor
+        else:
+            X_eval = torch.Tensor(np.array(eval_var[0:-2, :]).T)            # a 2-d tensor
+            Y_eval = torch.Tensor(np.array(eval_var[-1, :]).T).view(-1, 1)  # converting to a 2-d tensor
 
         X_eval, Y_eval = X_eval.to(device), Y_eval.to(device)
         if (load_model):
@@ -95,7 +103,6 @@ if __name__ == '__main__':
               dropout_rate = 0.5, weight_ini = 0.05, dropout_decision = False)
     testing(model_path = "../../Neural-Network-Regression/log/testing_models/"
                          "Apr-23-2020-10.20.43-h25_lr0.001_lam0.0005_bat_30/models"
-
     ,data_path =  "..\\..\\matlab files\\area2_non_IID\\manipulated\\"
     ,counter = 0
     ,net = net
