@@ -2,3 +2,9 @@
 Estimating power system inertia using convolution neural network.
 
 All of the python scripts are inside the "main code files" folder. I have not included the data samples here. Please modify the input shape, size, and path to match your needs.
+
+## Dependencies
+1. `pytorch`
+2. `numpy`
+3. `matplotlib`
+4. `h5py`
