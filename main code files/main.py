@@ -1,7 +1,7 @@
 '''
 Author: Abodh Poudyal (@abodh_ltd)
 MSEE, South Dakota State University
-Last updated: July 1, 2020
+Last updated: August 26, 2020
 '''
 
 import numpy as np
@@ -50,6 +50,8 @@ if __name__ == '__main__':
     save_figs = False       # set True if you want to save figs and data
     save_model = False      # set True when you want to save models for specific conditions
     load_model = False      # set True when you want to load the saved models for specific conditions
+
+    # update the location of your data files in data_path to match the path of the input data
 
     # data_path = "..\\..\\Neural-Network-Regression\\data files\\other data\\varying both_M_P_posneg_pulse" \
     #             "\\manipulated\\"
