@@ -279,7 +279,7 @@ if __name__ == '__main__':
     ###################################################################################################################
     ###################      5. Using the model (testing)     #######################
 
-    test_loss, test_RMSE = testing(model_path, data_path, counter, net, criterion, device, load_model)
+    test_loss, test_RMSE = testing(model_path, data_path, counter, net, criterion, device, network, load_model)
 
     ###################################################################################################################
     ###################      6. Plotting the results      #######################

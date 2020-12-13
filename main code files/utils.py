@@ -41,6 +41,7 @@ def testing(model_path,
             net,
             criterion,
             device,
+            network,
             load_model = True,
             trained_test = False):
 
